@@ -85,8 +85,6 @@ from .study.sensitivity import (
     two_way,
 )
 
-__version__ = "0.1.0"
-
 __all__ = [
     "BAFA2026",
     "LPG",
@@ -156,7 +154,6 @@ __all__ = [
     "Vehicle",
     "VehicleCategory",
     "VehicleTaxExemption",
-    "__version__",
     "advantage",
     "best_margin",
     "compare",

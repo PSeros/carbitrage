@@ -1,7 +1,8 @@
 """The facade is the public API.
 
-The 87 names below are what ``from carbitrage import ...`` promises.  Internal
-layout may move freely underneath; this list may not, without a changelog entry.
+The 86 names below are what ``from carbitrage import ...`` promises.  Internal
+layout may move freely underneath; this list may not, without a deliberate edit
+here.
 """
 
 from __future__ import annotations
@@ -77,7 +78,6 @@ EXPECTED = [
     "Vehicle",
     "VehicleCategory",
     "VehicleTaxExemption",
-    "__version__",
     "advantage",
     "best_margin",
     "compare",
@@ -106,7 +106,3 @@ def test_the_public_names_are_exactly_these() -> None:
 def test_every_exported_name_resolves() -> None:
     missing = [n for n in carbitrage.__all__ if not hasattr(carbitrage, n)]
     assert not missing
-
-
-def test_the_version_is_reported() -> None:
-    assert carbitrage.__version__ == "0.1.0"

@@ -20,9 +20,25 @@ of the question you are on.
 
 ## Install
 
+The package is not on an index; install it from the repository.
+
 ```bash
-uv add carbitrage                  # core: numpy, scipy
-uv add "carbitrage[frames,viz,excel]"   # pandas frames, matplotlib plots, xlsx export
+# core: numpy, scipy
+uv add "carbitrage @ git+https://github.com/PSeros/carbitrage.git"
+
+# with pandas frames, matplotlib plots, xlsx export
+uv add "carbitrage[frames,viz,excel] @ git+https://github.com/PSeros/carbitrage.git"
+```
+
+`pip install "carbitrage @ git+https://github.com/PSeros/carbitrage.git"` works
+the same way. Pin a commit or tag by appending `@<ref>` to the URL.
+
+To work on the library itself, clone it and sync the environment:
+
+```bash
+git clone https://github.com/PSeros/carbitrage.git
+cd carbitrage
+make install          # uv sync --all-extras --group dev
 ```
 
 Python 3.11+. Core dependencies are numpy and scipy (the latter for root
@@ -104,6 +120,7 @@ Lease the EV wins, above it Buy the EV now wins.
 | [API tour](docs/api-tour.md) | What you can ask a `ComparisonResult` |
 | [Traceability](docs/traceability.md) | Where a number comes from, and why the components must sum |
 | [Validation](docs/validation.md) | What the test suite checks |
+| [Working on the code](docs/development.md) | Setup, the layering rule, what the tests hold in place |
 
 `carbitrage` is layered — `core` → `domain` → `engine` → `study` → `reporting` —
 but everything public is re-exported at the top level, so `from carbitrage import X`

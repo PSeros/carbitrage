@@ -26,7 +26,7 @@ error and warning the library is supposed to raise: unequal lives without a
 chain, a nominal rate against unescalated flows, a real basis with no stated
 inflation, double-counted subsidies, and the guards around IRR.
 
-**The public API** is frozen in `tests/unit/test_public_api.py`. The 87 names
+**The public API** is frozen in `tests/unit/test_public_api.py`. The 86 names
 exported from `carbitrage` cannot change without that test failing.
 
 **The layering** is enforced in `tests/unit/test_layering.py`: no module may
