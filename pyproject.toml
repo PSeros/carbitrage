@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Capital budgeting for mutually exclusive asset alternatives with unequal lives"
 readme = "README.md"
 authors = [
-    { name = "PSeros", email = "konto.schlicht@posteo.de" }
+    { name = "PSeros" }
 ]
 requires-python = ">=3.11"
 dependencies = [
@@ -16,6 +16,9 @@ dependencies = [
 excel = ["openpyxl>=3.1"]
 viz = ["matplotlib>=3.8"]
 frames = ["pandas>=2.1"]
+jupyter = [
+    "jupyter>=1.1.1",
+]
 
 [dependency-groups]
 dev = [
