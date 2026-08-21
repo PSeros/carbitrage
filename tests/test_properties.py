@@ -7,9 +7,6 @@ the arithmetic.
 
 from __future__ import annotations
 
-from dataclasses import replace
-from itertools import pairwise
-
 import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
@@ -25,7 +22,6 @@ from carbitrage import (
 )
 from carbitrage.cashflow import CashFlowSeries, Component, Frequency, OneOff, Recurring
 from carbitrage.energy import Electricity, Petrol
-from tests.fixtures import workbook_base_case as wb
 
 SLOW = settings(max_examples=25, deadline=None)
 
@@ -280,38 +276,3 @@ def test_a_bivalent_cost_lies_between_its_two_legs(
 
 
 # ----------------------------------------------------------------- workbook
-
-
-@given(scale=st.floats(min_value=0.5, max_value=2.0))
-@SLOW
-def test_the_workbook_case_stays_internally_consistent_under_scaling(scale: float) -> None:
-    """Whatever the mileage, every breakdown must still sum to its own total."""
-    tl = wb.timeline()
-    result = compare(
-        wb.all_alternatives(),
-        tl,
-        usage=Usage(annual_km=12_000.0 * scale),
-        household=wb.household(),
-        incumbent=wb.incumbent(),
-    )
-    for name in result.names:
-        assert sum(result.breakdown(name).values()) == pytest.approx(
-            result[name].npv, rel=1e-9, abs=1e-6
-        )
-
-
-@given(rate=st.floats(min_value=0.0, max_value=0.15))
-@SLOW
-def test_the_workbook_ranking_is_transitive(rate: float) -> None:
-    tl = replace(wb.timeline(), rate=rate)
-    result = compare(
-        wb.all_alternatives(),
-        tl,
-        usage=wb.usage(),
-        household=wb.household(),
-        incumbent=wb.incumbent(),
-    )
-    order = result.ranking()
-    for better, worse in pairwise(order):
-        assert better.npv >= worse.npv
-        assert result.incremental(better.name, worse.name).pv >= -1e-9

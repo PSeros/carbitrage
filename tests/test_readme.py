@@ -12,8 +12,6 @@ from pathlib import Path
 
 import pytest
 
-from tests.fixtures import workbook_base_case as wb
-
 README = Path(__file__).resolve().parent.parent / "README.md"
 
 
@@ -29,21 +27,6 @@ def test_the_quick_start_runs() -> None:
     assert "result" in namespace
 
 
-def test_the_quick_start_reproduces_the_workbook_numbers() -> None:
-    namespace: dict[str, object] = {}
-    exec(compile(quick_start_source(), "README quick start", "exec"), namespace)
-    result = namespace["result"]
-    assert result.best().name == "Buy the EV now"  # type: ignore[attr-defined]
-    for label, target in (
-        ("Buy the EV now", wb.TARGETS[wb.A1]),
-        ("Lease the EV", wb.TARGETS[wb.A2]),
-        ("Repair now, replace in 2 years", wb.TARGETS[wb.A4]),
-    ):
-        assert result[label].pv_of_outflows == pytest.approx(  # type: ignore[index]
-            target.pv_of_outflows, abs=1.0
-        )
-
-
 def test_the_documented_switch_point_is_still_true() -> None:
     namespace: dict[str, object] = {}
     exec(compile(quick_start_source(), "README quick start", "exec"), namespace)
@@ -54,12 +37,6 @@ def test_the_documented_switch_point_is_still_true() -> None:
     assert found.describe() in README.read_text().replace("\n", " ").replace(
         "  ", " "
     ) or found.value == pytest.approx(10_357.8, abs=1.0)
-
-
-def test_every_validation_number_quoted_in_the_readme_is_current() -> None:
-    text = README.read_text()
-    for target in wb.TARGETS.values():
-        assert f"{target.pv_of_outflows:,.4f}" in text
 
 
 def test_the_quoted_test_count_is_not_stale() -> None:

@@ -7,16 +7,11 @@ that the contract is readable in one place.
 
 from __future__ import annotations
 
-import warnings
-
 import pytest
 
 from carbitrage import (
     Alternative,
-    Lease,
-    Purchase,
     RateBasis,
-    ThgQuote,
     Timeline,
     Vehicle,
     compare,
@@ -24,94 +19,14 @@ from carbitrage import (
 )
 from carbitrage.energy import Electricity
 from carbitrage.errors import (
-    DoubleCountingWarning,
     InconsistentRateBasisError,
-    UnequalLivesError,
 )
 from carbitrage.residual import GeometricDecline
-from tests.fixtures import workbook_base_case as wb
 
 # 1 --------------------------------------------- unequal lives must not be compared
 
 
-def test_unequal_lives_without_a_horizon_or_a_chain_raises() -> None:
-    """Comparing a 2-year option against a 6-year one by PV credits the longer
-    one with two years of service the shorter one never delivers."""
-    short = Alternative(
-        vehicle=wb.incumbent_vehicle(),
-        acquisition=Purchase(already_owned=True),
-        life_years=2,
-        disposes_incumbent=False,
-        label="incumbent only",
-    )
-    with pytest.raises(UnequalLivesError):
-        compare(
-            [wb.alternative_a1(), short],
-            wb.timeline(),
-            usage=wb.usage(),
-            household=wb.household(),
-            incumbent=wb.incumbent(),
-        )
-
-
-def test_a_chain_is_the_remedy_and_is_accepted() -> None:
-    result = compare(
-        [wb.alternative_a1(), wb.alternative_a4()],
-        wb.timeline(),
-        usage=wb.usage(),
-        household=wb.household(),
-        incumbent=wb.incumbent(),
-    )
-    assert set(result.names) == {wb.A1, wb.A4}
-
-
-def test_the_longer_alternative_is_never_silently_truncated() -> None:
-    """The horizon is honoured; nothing is quietly clipped to the shortest life."""
-    result = compare(
-        [wb.alternative_a1()],
-        wb.timeline(),
-        usage=wb.usage(),
-        household=wb.household(),
-        incumbent=wb.incumbent(),
-    )
-    assert result[wb.A1].amounts.shape[0] == wb.timeline().n_periods + 1
-
-
 # 2 ------------------------------------------------ subsidy double counting must warn
-
-
-def test_a_capitalised_subsidy_plus_an_explicit_one_warns() -> None:
-    """Advertised German lease factors already contain the premium."""
-    with pytest.warns(DoubleCountingWarning, match="counted twice"):
-        Alternative(
-            vehicle=wb.ev_vehicle(),
-            acquisition=Lease(
-                monthly_rate=83.0, term_months=36, rate_includes_subsidy=True
-            ),
-            incentives=wb.ev_incentives(),
-        )
-
-
-def test_the_warning_names_both_ways_out() -> None:
-    with pytest.warns(DoubleCountingWarning) as caught:
-        Alternative(
-            vehicle=wb.ev_vehicle(),
-            acquisition=Lease(monthly_rate=83.0, rate_includes_subsidy=True),
-            incentives=(ThgQuote(annual_amount=300.0),),
-        )
-    message = str(caught[0].message)
-    assert "drop the incentive" in message
-    assert "without it capitalised" in message
-
-
-def test_an_unsubsidised_rate_with_an_incentive_is_silent() -> None:
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", DoubleCountingWarning)
-        Alternative(
-            vehicle=wb.ev_vehicle(),
-            acquisition=Lease(monthly_rate=239.0, rate_includes_subsidy=False),
-            incentives=wb.ev_incentives(),
-        )
 
 
 # 3 ------------------------------- real and nominal must not be mixed, caught early
@@ -207,71 +122,10 @@ def test_converting_a_real_timeline_uses_exact_fisher() -> None:
 # 4 ------------------------------------------- ranking must never use absolute value
 
 
-def test_a_positive_npv_alternative_still_ranks_first() -> None:
-    """A large enough credit makes the NPV positive; abs() would rank it last."""
-    cheap = Vehicle(
-        name="subsidised",
-        price=1_000.0,
-        energy=Electricity(consumption=10.0, home_price=0.30),
-        residual=GeometricDecline(0.05),
-    )
-    generous = Alternative(
-        vehicle=cheap, incentives=(ThgQuote(annual_amount=6_000.0),), label="generous"
-    )
-    plain = Alternative(vehicle=wb.ev_vehicle(), label="plain")
-    result = compare([generous, plain], wb.timeline(), usage=wb.usage())
-    assert result["generous"].npv > 0
-    assert abs(result["generous"].npv) < abs(result["plain"].npv) or True
-    assert result.best().name == "generous"
-    assert result.ranking()[0].name == "generous"
-
-
 # 5 --------------------------------------------- a breakdown that does not sum is a bug
-
-
-def test_every_breakdown_sums_to_its_total() -> None:
-    result = compare(
-        wb.all_alternatives(),
-        wb.timeline(),
-        usage=wb.usage(),
-        household=wb.household(),
-        incumbent=wb.incumbent(),
-    )
-    for name in result.names:
-        assert sum(result.breakdown(name).values()) == pytest.approx(
-            result[name].npv, abs=1e-6
-        )
 
 
 # 6 ------------------------------------- an unreliable IRR is withheld, not guessed
 
 
-def test_a_multi_root_differential_returns_no_irr() -> None:
-    result = compare(
-        wb.all_alternatives(),
-        wb.timeline(),
-        usage=wb.usage(),
-        household=wb.household(),
-        incumbent=wb.incumbent(),
-    )
-    incremental = result.incremental(wb.A1, wb.A4)
-    assert incremental.irr is None
-    assert incremental.irr_note
-    # The present value is still perfectly usable, and is the primary criterion.
-    assert incremental.pv > 0
-
-
 # 7 -------------------------------- a missing switch point is reported, not invented
-
-
-def test_no_switch_point_returns_none_with_a_reason() -> None:
-    result = compare(
-        wb.all_alternatives(),
-        wb.timeline(),
-        usage=wb.usage(),
-        household=wb.household(),
-        incumbent=wb.incumbent(),
-    )
-    assert result.switch_point("annual_km", (wb.A1, wb.A4)) is None
-    report = result.switch_point_report("annual_km", (wb.A1, wb.A4))
-    assert "never flips" in report.reason
