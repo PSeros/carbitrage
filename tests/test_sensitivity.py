@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from carbitrage.errors import CarbitrageError
-from carbitrage.sensitivity import (
+from carbitrage.study.sensitivity import (
     LogNormal,
     Normal,
     Range,

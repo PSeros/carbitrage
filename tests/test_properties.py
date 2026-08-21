@@ -20,8 +20,8 @@ from carbitrage import (
     Vehicle,
     compare,
 )
-from carbitrage.cashflow import CashFlowSeries, Component, Frequency, OneOff, Recurring
-from carbitrage.energy import Electricity, Petrol
+from carbitrage.core.cashflow import CashFlowSeries, Component, Frequency, OneOff, Recurring
+from carbitrage.domain.energy import Electricity, Petrol
 
 SLOW = settings(max_examples=25, deadline=None)
 
@@ -264,7 +264,7 @@ def test_value_after_is_consistent_with_the_underlying_curve(
 def test_a_bivalent_cost_lies_between_its_two_legs(
     share: float, gas: float, petrol: float
 ) -> None:
-    from carbitrage.energy import LPG, BivalentSource
+    from carbitrage.domain.energy import LPG, BivalentSource
 
     tl = Timeline(horizon_years=2, periods_per_year=12, rate=0.03)
     primary = LPG(consumption=8.0, price=gas)

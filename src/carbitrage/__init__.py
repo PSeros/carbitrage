@@ -11,10 +11,7 @@ Vehicles are the first-class use case; nothing in the core knows about cars.
 
 from __future__ import annotations
 
-from .acquisition import Acquisition, Financed, Lease, Purchase
-from .alternative import Alternative, Evaluable
-from .analysis import Case, compare
-from .cashflow import (
+from .core.cashflow import (
     CashFlow,
     CashFlowSeries,
     Component,
@@ -23,9 +20,18 @@ from .cashflow import (
     Recurring,
     Terminal,
 )
-from .chain import ReplacementAgeTable, ReplacementChain, optimal_replacement_age
-from .context import Context, Household, Incumbent, Usage
-from .energy import (
+from .core.timeline import (
+    Escalation,
+    Periodisation,
+    RateBasis,
+    Timeline,
+    fisher_inflation,
+    fisher_nominal,
+    fisher_real,
+)
+from .domain.acquisition import Acquisition, Financed, Lease, Purchase
+from .domain.context import Context, Household, Incumbent, Usage
+from .domain.energy import (
     LPG,
     BivalentSource,
     Diesel,
@@ -34,6 +40,19 @@ from .energy import (
     Hydrogen,
     Petrol,
 )
+from .domain.incentive import BAFA2026, Incentive, ThgQuote, VehicleTaxExemption
+from .domain.residual import (
+    FirstYearDropThenGeometric,
+    GeometricDecline,
+    ResidualValueModel,
+    TabulatedResiduals,
+)
+from .domain.tax import BusinessAssets, PrivateHousehold, TaxTreatment
+from .domain.vehicle import Propulsion, Vehicle, VehicleCategory
+from .engine.alternative import Alternative, Evaluable
+from .engine.chain import ReplacementAgeTable, ReplacementChain, optimal_replacement_age
+from .engine.comparison import Case, compare
+from .engine.result import ComparisonResult, Evaluation, Incremental
 from .errors import (
     CarbitrageError,
     DoubleCountingWarning,
@@ -42,17 +61,9 @@ from .errors import (
     TimelineError,
     UnequalLivesError,
 )
-from .incentive import BAFA2026, Incentive, ThgQuote, VehicleTaxExemption
-from .params import get_param, resolve, scale_param, set_param, set_params
-from .residual import (
-    FirstYearDropThenGeometric,
-    GeometricDecline,
-    ResidualValueModel,
-    TabulatedResiduals,
-)
-from .result import ComparisonResult, Evaluation, Incremental
-from .scenario import Scenario, ScenarioAnalysis, ScenarioSet
-from .sensitivity import (
+from .study.params import get_param, resolve, scale_param, set_param, set_params
+from .study.scenario import Scenario, ScenarioAnalysis, ScenarioSet
+from .study.sensitivity import (
     Distribution,
     LogNormal,
     MonteCarlo,
@@ -73,17 +84,6 @@ from .sensitivity import (
     tornado,
     two_way,
 )
-from .tax import BusinessAssets, PrivateHousehold, TaxTreatment
-from .timeline import (
-    Escalation,
-    Periodisation,
-    RateBasis,
-    Timeline,
-    fisher_inflation,
-    fisher_nominal,
-    fisher_real,
-)
-from .vehicle import Propulsion, Vehicle, VehicleCategory
 
 __version__ = "0.1.0"
 

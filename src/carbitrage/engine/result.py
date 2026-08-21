@@ -23,17 +23,16 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 import numpy.typing as npt
 
-from .cashflow import CashFlowSeries, Component, ComponentPV
-from .context import Context
-from .errors import CarbitrageError
+from ..core.cashflow import CashFlowSeries, Component, ComponentPV
+from ..domain.context import Context
+from ..errors import CarbitrageError
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Mapping, Sequence
 
     import numpy.typing as _npt
 
-    from .analysis import Case
-    from .sensitivity import (
+    from ..study.sensitivity import (
         Distribution,
         Metric,
         MonteCarlo,
@@ -44,6 +43,7 @@ if TYPE_CHECKING:  # pragma: no cover
         Tornado,
         TwoWayGrid,
     )
+    from .comparison import Case
 
 __all__ = ["ComparisonResult", "Evaluation", "Incremental"]
 
@@ -147,7 +147,7 @@ class ComparisonResult:
     materiality: float = _DEFAULT_MATERIALITY
     case: Case | None = None
     """The inputs this result came from, when it was built by
-    :func:`~carbitrage.analysis.compare`.  Sensitivity analysis needs them in
+    :func:`~carbitrage.engine.comparison.compare`.  Sensitivity analysis needs them in
     order to perturb one parameter and re-run."""
 
     _by_name: dict[str, Evaluation] = field(init=False, repr=False, compare=False)
@@ -375,8 +375,12 @@ class ComparisonResult:
     def one_way(
         self, param: str, values: Sequence[float], *, metric: Metric | None = None
     ) -> OneWayGrid:
-        """Sweep one parameter.  See :func:`carbitrage.sensitivity.one_way`."""
-        from .sensitivity import one_way
+        """Sweep one parameter.  See :func:`carbitrage.study.sensitivity.one_way`."""
+        # An upward edge into `study`, by design.  These six methods are
+        # convenience delegators so that `result.one_way(...)` reads well; keeping
+        # the import function-local means `engine` stays importable without
+        # `study`, and the reverse edge (sensitivity -> engine) stays type-only.
+        from ..study.sensitivity import one_way
 
         return one_way(self._require_case("one_way"), param, values, metric=metric)
 
@@ -389,8 +393,8 @@ class ComparisonResult:
         *,
         metric: Metric | None = None,
     ) -> TwoWayGrid:
-        """Sweep two parameters.  See :func:`carbitrage.sensitivity.two_way`."""
-        from .sensitivity import two_way
+        """Sweep two parameters.  See :func:`carbitrage.study.sensitivity.two_way`."""
+        from ..study.sensitivity import two_way
 
         return two_way(
             self._require_case("two_way"),
@@ -410,9 +414,9 @@ class ComparisonResult:
     ) -> SwitchPoint | None:
         """Solve for the value at which the ranking flips, or ``None``.
 
-        See :func:`carbitrage.sensitivity.switch_point`.
+        See :func:`carbitrage.study.sensitivity.switch_point`.
         """
-        from .sensitivity import switch_point
+        from ..study.sensitivity import switch_point
 
         return switch_point(
             self._require_case("switch_point"), param, between, bounds=bounds
@@ -426,7 +430,7 @@ class ComparisonResult:
         bounds: tuple[float, float] | None = None,
     ) -> SwitchPoint | NoSwitchPoint:
         """As :meth:`switch_point`, but explains itself when there is no crossing."""
-        from .sensitivity import switch_point_report
+        from ..study.sensitivity import switch_point_report
 
         return switch_point_report(
             self._require_case("switch_point"), param, between, bounds=bounds
@@ -439,8 +443,8 @@ class ComparisonResult:
         metric: Metric | None = None,
         default_range: Range | None = None,
     ) -> Tornado:
-        """Rank drivers by swing.  See :func:`carbitrage.sensitivity.tornado`."""
-        from .sensitivity import tornado
+        """Rank drivers by swing.  See :func:`carbitrage.study.sensitivity.tornado`."""
+        from ..study.sensitivity import tornado
 
         return tornado(
             self._require_case("tornado"),
@@ -460,9 +464,9 @@ class ComparisonResult:
     ) -> MonteCarlo:
         """Simulate with uncertain inputs.
 
-        See :func:`carbitrage.sensitivity.monte_carlo`.
+        See :func:`carbitrage.study.sensitivity.monte_carlo`.
         """
-        from .sensitivity import monte_carlo
+        from ..study.sensitivity import monte_carlo
 
         return monte_carlo(
             self._require_case("monte_carlo"),

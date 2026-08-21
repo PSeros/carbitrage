@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from carbitrage.errors import CarbitrageError
-from carbitrage.scenario import Scenario, ScenarioSet
+from carbitrage.study.scenario import Scenario, ScenarioSet
 
 DEFERRED_SUBSIDY = (
     "alternatives[A4 Incumbent then EV].legs[Hyundai Inster (deferred)].incentives[0].available"

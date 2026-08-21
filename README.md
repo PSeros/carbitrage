@@ -37,9 +37,9 @@ from carbitrage import (
     Alternative, Household, Incumbent, Lease, Purchase, ReplacementChain,
     TabulatedResiduals, Timeline, Usage, Vehicle, compare,
 )
-from carbitrage.energy import LPG, BivalentSource, Electricity, Petrol
-from carbitrage.incentive import BAFA2026, ThgQuote, VehicleTaxExemption
-from carbitrage.residual import GeometricDecline
+from carbitrage.domain.energy import LPG, BivalentSource, Electricity, Petrol
+from carbitrage.domain.incentive import BAFA2026, ThgQuote, VehicleTaxExemption
+from carbitrage.domain.residual import GeometricDecline
 
 timeline  = Timeline(horizon_years=6, periods_per_year=12, rate=0.03,
                      energy_escalation=0.02, vehicle_price_escalation=0.015)
@@ -300,7 +300,7 @@ Two, both deliberate:
    replacement chain — see the method note above for why the leg's start period
    is an economic quantity rather than an implementation detail.
 2. **Excel is an output, not an input.** The brief specified an
-   Excel → objects loader. Cases are defined in Python here; `carbitrage.io`
+   Excel → objects loader. Cases are defined in Python here; `carbitrage.reporting`
    writes a *result* workbook (ranking, breakdown, full cash-flow grid,
    scenarios) as values rather than formulas, so there is never a second
    implementation of the engine to drift out of step.

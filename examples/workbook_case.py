@@ -34,10 +34,10 @@ from carbitrage import (
     monte_carlo,
     optimal_replacement_age,
 )
-from carbitrage.energy import LPG, BivalentSource, Electricity, Petrol
-from carbitrage.incentive import BAFA2026, ThgQuote, VehicleTaxExemption
-from carbitrage.residual import GeometricDecline
-from carbitrage.scenario import Scenario, ScenarioSet
+from carbitrage.domain.energy import LPG, BivalentSource, Electricity, Petrol
+from carbitrage.domain.incentive import BAFA2026, ThgQuote, VehicleTaxExemption
+from carbitrage.domain.residual import GeometricDecline
+from carbitrage.study.scenario import Scenario, ScenarioSet
 
 BUY = "Buy the EV now"
 LEASE = "Lease the EV"
@@ -188,7 +188,7 @@ def main() -> None:
 
     destination = Path("carbitrage-report.xlsx")
     try:
-        from carbitrage.io import write_excel
+        from carbitrage.reporting import write_excel
 
         written = write_excel(result, destination, baseline=DEFER, scenarios=analysis)
         print(f"\n\nWrote {written}")

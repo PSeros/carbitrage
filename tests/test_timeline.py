@@ -7,8 +7,7 @@ import math
 
 import pytest
 
-from carbitrage.errors import InconsistentRateBasisError, TimelineError
-from carbitrage.timeline import (
+from carbitrage.core.timeline import (
     Escalation,
     Periodisation,
     RateBasis,
@@ -17,6 +16,7 @@ from carbitrage.timeline import (
     fisher_nominal,
     fisher_real,
 )
+from carbitrage.errors import InconsistentRateBasisError, TimelineError
 
 WORKBOOK_MONTHLY_RATE = 0.00246626977230369
 WORKBOOK_CRF = 0.184597500450177

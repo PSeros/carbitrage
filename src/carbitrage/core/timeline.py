@@ -27,7 +27,7 @@ from typing import Any, Final
 import numpy as np
 import numpy.typing as npt
 
-from .errors import InconsistentRateBasisError, TimelineError
+from ..errors import InconsistentRateBasisError, TimelineError
 
 __all__ = [
     "Escalation",

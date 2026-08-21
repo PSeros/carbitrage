@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from carbitrage.cashflow import (
+from carbitrage.core.cashflow import (
     CashFlowSeries,
     Component,
     Frequency,
@@ -11,9 +11,9 @@ from carbitrage.cashflow import (
     Recurring,
     Terminal,
 )
+from carbitrage.core.timeline import Timeline
+from carbitrage.domain.residual import GeometricDecline
 from carbitrage.errors import TimelineError
-from carbitrage.residual import GeometricDecline
-from carbitrage.timeline import Timeline
 
 
 @pytest.fixture

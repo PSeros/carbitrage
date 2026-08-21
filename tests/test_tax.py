@@ -16,10 +16,10 @@ from carbitrage import (
     Vehicle,
     compare,
 )
-from carbitrage.energy import Electricity
+from carbitrage.domain.energy import Electricity
+from carbitrage.domain.residual import GeometricDecline
+from carbitrage.domain.tax import DEGRESSIVE_2026, STRAIGHT_LINE_6Y
 from carbitrage.errors import CarbitrageError
-from carbitrage.residual import GeometricDecline
-from carbitrage.tax import DEGRESSIVE_2026, STRAIGHT_LINE_6Y
 
 
 @pytest.fixture

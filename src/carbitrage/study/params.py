@@ -26,12 +26,12 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from .energy import LPG, Diesel, Electricity, Hydrogen, Petrol
-from .errors import CarbitrageError
-from .residual import FirstYearDropThenGeometric, GeometricDecline
+from ..domain.energy import LPG, Diesel, Electricity, Hydrogen, Petrol
+from ..domain.residual import FirstYearDropThenGeometric, GeometricDecline
+from ..errors import CarbitrageError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .analysis import Case
+    from ..engine.comparison import Case
 
 __all__ = [
     "ALIASES",
@@ -264,7 +264,7 @@ def _rebuild(obj: Any, field: str, value: Any) -> Any:
     """``obj`` with one field replaced, honouring any custom constructor.
 
     Classes whose ``__init__`` does not take their fields by name — such as
-    :class:`~carbitrage.chain.ReplacementChain` — provide ``__replace__``.
+    :class:`~carbitrage.engine.chain.ReplacementChain` — provide ``__replace__``.
     """
     replacer = getattr(type(obj), "__replace__", None)
     if replacer is not None and "__replace__" in vars(type(obj)):

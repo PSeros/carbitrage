@@ -16,9 +16,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 
-from .errors import CarbitrageError
+from ..core.timeline import Timeline
+from ..errors import CarbitrageError
 from .tax import PrivateHousehold, TaxTreatment
-from .timeline import Timeline
 from .vehicle import Vehicle
 
 __all__ = ["Context", "Household", "Incumbent", "Usage"]

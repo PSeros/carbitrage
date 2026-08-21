@@ -25,7 +25,7 @@ from typing import Protocol, runtime_checkable
 import numpy as np
 import numpy.typing as npt
 
-from .errors import TimelineError
+from ..errors import TimelineError
 from .timeline import Timeline
 
 __all__ = [

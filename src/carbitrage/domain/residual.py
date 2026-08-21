@@ -6,7 +6,7 @@ month 24 is four years old at a six-year horizon, and must be valued at four
 years on the same curve as any other four-year-old asset.
 
 Terminal values are therefore derived rather than entered as free parameters —
-see :meth:`carbitrage.cashflow.Terminal.from_residual`.
+see :meth:`carbitrage.core.cashflow.Terminal.from_residual`.
 
 **Real or nominal.**  A depreciation rate read off observed used-asset prices is
 a *nominal* rate of price decline: it already contains inflation.  Applying it to
@@ -23,7 +23,7 @@ import bisect
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from .errors import CarbitrageError
+from ..errors import CarbitrageError
 
 __all__ = [
     "FirstYearDropThenGeometric",

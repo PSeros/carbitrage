@@ -17,8 +17,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
 
-from .cashflow import CashFlow, CashFlowSeries, Component, OneOff
-from .errors import CarbitrageError
+from ..core.cashflow import CashFlow, CashFlowSeries, Component, OneOff
+from ..errors import CarbitrageError
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle only matters to type checkers
     from .context import Context

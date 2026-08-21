@@ -17,11 +17,11 @@ from carbitrage import (
     compare,
     fisher_real,
 )
-from carbitrage.energy import Electricity
+from carbitrage.domain.energy import Electricity
+from carbitrage.domain.residual import GeometricDecline
 from carbitrage.errors import (
     InconsistentRateBasisError,
 )
-from carbitrage.residual import GeometricDecline
 
 # 1 --------------------------------------------- unequal lives must not be compared
 

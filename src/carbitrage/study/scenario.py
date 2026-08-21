@@ -22,12 +22,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from .errors import CarbitrageError
+from ..errors import CarbitrageError
 from .params import set_params
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .analysis import Case
-    from .result import ComparisonResult
+    from ..engine.comparison import Case
+    from ..engine.result import ComparisonResult
 
 __all__ = ["Scenario", "ScenarioAnalysis", "ScenarioSet"]
 
@@ -39,7 +39,7 @@ class Scenario:
     Args:
         name: Display name.
         overrides: Parameter name to value, using the same aliases and dotted
-            paths as :mod:`carbitrage.params`.
+            paths as :mod:`carbitrage.study.params`.
         probability: Subjective probability.  Optional: leave it unset and only
             the regret analysis is meaningful, which is the honest position when
             the odds are unknown.

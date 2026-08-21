@@ -20,11 +20,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ..cashflow import Component
+from ..core.cashflow import Component
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..result import ComparisonResult
-    from ..scenario import ScenarioAnalysis
+    from ..engine.result import ComparisonResult
+    from ..study.scenario import ScenarioAnalysis
 
 __all__ = ["write_excel"]
 
@@ -52,7 +52,7 @@ def write_excel(
     * **Cashflow** — the full period grid, one column per alternative, plus the
       discount factor, so the present values can be recomputed by hand.
     * **Scenarios** — present value by scenario with expected value and maximum
-      regret, when a :class:`~carbitrage.scenario.ScenarioAnalysis` is supplied.
+      regret, when a :class:`~carbitrage.study.scenario.ScenarioAnalysis` is supplied.
 
     Args:
         result: The comparison to report.

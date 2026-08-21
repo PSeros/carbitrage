@@ -24,12 +24,12 @@ import numpy as np
 import numpy.typing as npt
 from scipy.optimize import brentq
 
-from .errors import CarbitrageError
+from ..errors import CarbitrageError
 from .params import get_param, resolve, scale_param, set_param, set_params
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .analysis import Case
-    from .result import ComparisonResult
+    from ..engine.comparison import Case
+    from ..engine.result import ComparisonResult
 
 __all__ = [
     "Distribution",

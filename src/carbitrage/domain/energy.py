@@ -20,8 +20,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from .errors import CarbitrageError
-from .timeline import Timeline
+from ..core.timeline import Timeline
+from ..errors import CarbitrageError
 
 __all__ = [
     "LPG",

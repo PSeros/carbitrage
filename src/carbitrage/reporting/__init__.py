@@ -1,6 +1,8 @@
-"""Optional input and output adapters.
+"""Optional output adapters.
 
 The core takes its inputs in Python and needs nothing from this package.
+`write_excel` is resolved lazily so that importing it does not require the
+``excel`` extra to be installed.
 """
 
 from __future__ import annotations

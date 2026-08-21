@@ -15,10 +15,10 @@ from carbitrage import (
     Vehicle,
     VehicleCategory,
 )
-from carbitrage.energy import LPG, BivalentSource, Electricity, Hydrogen, Petrol
+from carbitrage.domain.energy import LPG, BivalentSource, Electricity, Hydrogen, Petrol
+from carbitrage.domain.incentive import BAFA2026, BAFA_2026_PHEV, ThgQuote, VehicleTaxExemption
+from carbitrage.domain.residual import GeometricDecline
 from carbitrage.errors import CarbitrageError
-from carbitrage.incentive import BAFA2026, BAFA_2026_PHEV, ThgQuote, VehicleTaxExemption
-from carbitrage.residual import GeometricDecline
 
 
 def ev(**kwargs: object) -> Vehicle:

@@ -1,9 +1,9 @@
 """The asset itself.
 
 A :class:`Vehicle` is pure data about the asset.  It knows nothing about how it
-is paid for (that is :mod:`carbitrage.acquisition`), nothing about who buys it
-(that is :class:`~carbitrage.context.Household`), and nothing about how far it is
-driven (that is :class:`~carbitrage.context.Usage`).  Keeping those apart is what
+is paid for (that is :mod:`carbitrage.domain.acquisition`), nothing about who buys it
+(that is :class:`~carbitrage.domain.context.Household`), and nothing about how far it is
+driven (that is :class:`~carbitrage.domain.context.Usage`).  Keeping those apart is what
 lets the same vehicle appear in a purchase, a lease and a replacement chain
 without being redefined.
 """
@@ -14,8 +14,8 @@ from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
 
+from ..errors import CarbitrageError
 from .energy import BivalentSource, Electricity, EnergySource, Hydrogen
-from .errors import CarbitrageError
 from .residual import ResidualValueModel
 
 __all__ = ["Propulsion", "Vehicle", "VehicleCategory"]
@@ -61,7 +61,7 @@ class Vehicle:
         insurance: Annual insurance premium.
         maintenance: Annual maintenance and wear.
         annual_tax: Annual circulation tax before any exemption.  Model an
-            exemption as a :class:`~carbitrage.incentive.VehicleTaxExemption`
+            exemption as a :class:`~carbitrage.domain.incentive.VehicleTaxExemption`
             rather than by setting this to zero, so that a used vehicle can
             inherit a partially elapsed exemption.
         other_annual_cost: Any further recurring cost, such as a repair reserve

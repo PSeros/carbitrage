@@ -25,7 +25,7 @@ class UnequalLivesError(CarbitrageError):
     """Alternatives with different useful lives were compared by raw NPV.
 
     Two remedies exist and both are supported: equalise the lives with a
-    :class:`~carbitrage.chain.ReplacementChain`, or compare equivalent annual
+    :class:`~carbitrage.engine.chain.ReplacementChain`, or compare equivalent annual
     cost.  Silently truncating the longer-lived alternative is not one of them.
     """
 

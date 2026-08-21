@@ -2,12 +2,12 @@
 
 import pytest
 
-from carbitrage.errors import CarbitrageError
-from carbitrage.residual import (
+from carbitrage.domain.residual import (
     FirstYearDropThenGeometric,
     GeometricDecline,
     TabulatedResiduals,
 )
+from carbitrage.errors import CarbitrageError
 
 
 def test_geometric_decline_matches_workbook_ev_residual() -> None:

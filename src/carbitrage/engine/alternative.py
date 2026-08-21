@@ -13,21 +13,21 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Protocol, runtime_checkable
 
-from .acquisition import Acquisition, Lease, Purchase, warn_on_double_counted_subsidy
-from .cashflow import CashFlow, CashFlowSeries, Component, Frequency, OneOff, Recurring
-from .context import Context
-from .errors import CarbitrageError
-from .incentive import Incentive
-from .vehicle import Vehicle
+from ..core.cashflow import CashFlow, CashFlowSeries, Component, Frequency, OneOff, Recurring
+from ..domain.acquisition import Acquisition, Lease, Purchase, warn_on_double_counted_subsidy
+from ..domain.context import Context
+from ..domain.incentive import Incentive
+from ..domain.vehicle import Vehicle
+from ..errors import CarbitrageError
 
 __all__ = ["Alternative", "Evaluable"]
 
 
 @runtime_checkable
 class Evaluable(Protocol):
-    """Anything :func:`~carbitrage.analysis.compare` can rank.
+    """Anything :func:`~carbitrage.engine.comparison.compare` can rank.
 
-    Both :class:`Alternative` and :class:`~carbitrage.chain.ReplacementChain`
+    Both :class:`Alternative` and :class:`~carbitrage.engine.chain.ReplacementChain`
     satisfy it, which is what lets a chain stand beside a plain alternative in
     the same comparison.
     """
@@ -62,7 +62,7 @@ class Alternative:
         label: Display name.  Defaults to the vehicle's name.
         life_years: Useful life when it is shorter than the horizon, which
             obliges the caller to wrap it in a
-            :class:`~carbitrage.chain.ReplacementChain`.
+            :class:`~carbitrage.engine.chain.ReplacementChain`.
         disposes_incumbent: Whether taking this course sells the asset already
             owned.  True for every alternative that replaces it; false for the
             one that keeps it.  The proceeds are an inflow at t=0, and their

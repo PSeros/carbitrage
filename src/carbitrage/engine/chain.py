@@ -21,12 +21,12 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
+from ..core.cashflow import CashFlowSeries
+from ..core.timeline import Timeline
+from ..domain.context import Context, Household, Incumbent, Usage
+from ..domain.tax import PrivateHousehold, TaxTreatment
+from ..errors import CarbitrageError, UnequalLivesError
 from .alternative import Alternative, Evaluable
-from .cashflow import CashFlowSeries
-from .context import Context, Household, Incumbent, Usage
-from .errors import CarbitrageError, UnequalLivesError
-from .tax import PrivateHousehold, TaxTreatment
-from .timeline import Timeline
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Sequence
@@ -91,7 +91,7 @@ class ReplacementChain:
 
         ``dataclasses.replace`` cannot be used on this class because its
         ``__init__`` takes ``(first, then)`` rather than ``legs``.  Parameter
-        overrides in :mod:`carbitrage.params` reach inside a chain's legs, so the
+        overrides in :mod:`carbitrage.study.params` reach inside a chain's legs, so the
         rebuild has to work.
         """
         legs = changes.pop("legs", self.legs)
@@ -171,7 +171,7 @@ class ReplacementAgeTable:
     Attributes:
         ages: The holding periods evaluated, in years.
         eac: Equivalent annual **cost**, positive for a net cost, matching the
-            sign convention of :meth:`carbitrage.result.Evaluation.eac`.  This is
+            sign convention of :meth:`carbitrage.engine.result.Evaluation.eac`.  This is
             the series to minimise; minimising a signed NPV annuity instead would
             pick the *most* expensive age.
         pv: Net present value per holding period, negative for a net cost.

@@ -2,7 +2,8 @@
 
 import pytest
 
-from carbitrage.energy import (
+from carbitrage.core.timeline import Timeline
+from carbitrage.domain.energy import (
     LPG,
     BivalentSource,
     Diesel,
@@ -11,7 +12,6 @@ from carbitrage.energy import (
     Petrol,
 )
 from carbitrage.errors import CarbitrageError
-from carbitrage.timeline import Timeline
 
 
 @pytest.fixture

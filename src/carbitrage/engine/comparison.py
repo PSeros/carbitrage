@@ -5,7 +5,7 @@ lives by raw net present value.  That comparison is meaningless — the
 longer-lived option is being credited with service the other does not deliver —
 and there are exactly two legitimate remedies, both supported:
 
-* equalise the lives with a :class:`~carbitrage.chain.ReplacementChain`, so every
+* equalise the lives with a :class:`~carbitrage.engine.chain.ReplacementChain`, so every
   alternative covers the same horizon; or
 * compare equivalent annual cost, which annualises each alternative over its own
   life and is licensed when replacements repeat identically.
@@ -25,11 +25,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from .context import Context, Household, Incumbent, Usage
-from .errors import UnequalLivesError
+from ..core.timeline import Timeline
+from ..domain.context import Context, Household, Incumbent, Usage
+from ..domain.tax import PrivateHousehold, TaxTreatment
+from ..errors import UnequalLivesError
 from .result import ComparisonResult, Evaluation
-from .tax import PrivateHousehold, TaxTreatment
-from .timeline import Timeline
 
 if TYPE_CHECKING:  # pragma: no cover
     from .alternative import Evaluable
@@ -103,8 +103,8 @@ def compare(
 
     Args:
         alternatives: The mutually exclusive options.  Each must be an
-            :class:`~carbitrage.alternative.Alternative` or a
-            :class:`~carbitrage.chain.ReplacementChain`.
+            :class:`~carbitrage.engine.alternative.Alternative` or a
+            :class:`~carbitrage.engine.chain.ReplacementChain`.
         timeline: The common horizon, rate and escalations.
         usage: Mileage profile applied to every alternative.
         household: The buyer, for means-tested incentives.
@@ -123,7 +123,7 @@ def compare(
         CarbitrageError: on duplicate alternative names.
 
     Returns:
-        A :class:`~carbitrage.result.ComparisonResult`.
+        A :class:`~carbitrage.engine.result.ComparisonResult`.
     """
     return Case(
         alternatives=tuple(alternatives),

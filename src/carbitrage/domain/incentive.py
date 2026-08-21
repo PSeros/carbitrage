@@ -17,8 +17,8 @@ from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING, Final
 
-from .cashflow import CashFlowSeries, Component, Frequency, OneOff, Recurring
-from .errors import CarbitrageError, EligibilityError
+from ..core.cashflow import CashFlowSeries, Component, Frequency, OneOff, Recurring
+from ..errors import CarbitrageError, EligibilityError
 from .vehicle import Propulsion, Vehicle, VehicleCategory
 
 if TYPE_CHECKING:  # pragma: no cover

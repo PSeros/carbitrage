@@ -18,7 +18,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .cashflow import (
+from ..core.cashflow import (
     CashFlow,
     CashFlowSeries,
     Component,
@@ -27,7 +27,7 @@ from .cashflow import (
     Recurring,
     Terminal,
 )
-from .errors import CarbitrageError, DoubleCountingWarning
+from ..errors import CarbitrageError, DoubleCountingWarning
 
 if TYPE_CHECKING:  # pragma: no cover
     from .context import Context
@@ -54,7 +54,7 @@ class Acquisition(ABC):
 
         Advertised German lease rates almost always have the purchase premium
         baked in as a capitalised initial payment.  Adding an explicit
-        :class:`~carbitrage.incentive.Incentive` on top then counts it twice.
+        :class:`~carbitrage.domain.incentive.Incentive` on top then counts it twice.
         """
         return False
 
@@ -86,7 +86,7 @@ class Purchase(Acquisition):
             still at risk and its residual is still collected.  The cash
             consequence of keeping it is the *forgone* disposal proceeds, which
             are recognised as an inflow on every alternative that disposes of
-            it — see :class:`~carbitrage.context.Incumbent`.
+            it — see :class:`~carbitrage.domain.context.Incumbent`.
     """
 
     upfront_extra: float = 0.0
@@ -332,7 +332,7 @@ def warn_on_double_counted_subsidy(acquisition: Acquisition, has_incentive: bool
 
     Advertised German lease factors of 0.15 to 0.35 % of list price already
     contain the purchase premium as a capitalised initial payment.  Supplying an
-    :class:`~carbitrage.incentive.Incentive` as well counts the same money twice
+    :class:`~carbitrage.domain.incentive.Incentive` as well counts the same money twice
     and can invert the ranking, so this is loud rather than quiet.
     """
     if has_incentive and acquisition.subsidy_capitalised:
