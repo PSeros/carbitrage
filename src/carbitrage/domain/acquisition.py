@@ -296,8 +296,7 @@ class Lease(Acquisition):
             if self.initial_payment:
                 out.append(
                     OneOff(
-                        amount=-self.initial_payment
-                        * (1.0 + self.renewal_escalation) ** contract,
+                        amount=-self.initial_payment * (1.0 + self.renewal_escalation) ** contract,
                         at=start,
                         label=Component.LEASE,
                         description=f"Initial payment, contract {contract + 1}",

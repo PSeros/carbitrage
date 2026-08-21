@@ -80,9 +80,7 @@ def test_both_consistent_framings_give_the_same_answer() -> None:
         return compare([alternative], timeline)["a"].npv
 
     nominal = build(
-        Timeline(
-            horizon_years=5, periods_per_year=12, rate=nominal_rate, cost_escalation=inflation
-        )
+        Timeline(horizon_years=5, periods_per_year=12, rate=nominal_rate, cost_escalation=inflation)
     )
     real = build(Timeline.real(5, rate=real_rate, inflation=inflation, periods_per_year=12))
     # The escalation index steps once a year rather than compounding monthly, so

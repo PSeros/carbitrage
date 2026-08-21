@@ -66,9 +66,7 @@ class EnergySource(ABC):
         if consumption < 0:
             raise CarbitrageError(f"consumption must not be negative, got {consumption!r}")
         if real_world_factor <= 0:
-            raise CarbitrageError(
-                f"real_world_factor must be positive, got {real_world_factor!r}"
-            )
+            raise CarbitrageError(f"real_world_factor must be positive, got {real_world_factor!r}")
 
 
 @dataclass(frozen=True)
@@ -189,16 +187,13 @@ class BivalentSource(EnergySource):
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.primary_share <= 1.0:
-            raise CarbitrageError(
-                f"primary_share must lie in [0, 1], got {self.primary_share!r}"
-            )
+            raise CarbitrageError(f"primary_share must lie in [0, 1], got {self.primary_share!r}")
 
     @property
     def consumption(self) -> float:  # type: ignore[override]
         """Mileage-weighted consumption.  Only meaningful when the units agree."""
-        return (
-            self.primary.consumption * self.primary_share
-            + self.secondary.consumption * (1.0 - self.primary_share)
+        return self.primary.consumption * self.primary_share + self.secondary.consumption * (
+            1.0 - self.primary_share
         )
 
     @property
@@ -219,13 +214,13 @@ class BivalentSource(EnergySource):
         Units differ between the legs, so this figure is only interpretable
         alongside :meth:`cost_per_100km`, which is the number that matters.
         """
-        return (
-            self.primary.unit_cost(t, timeline) * self.primary_share
-            + self.secondary.unit_cost(t, timeline) * (1.0 - self.primary_share)
-        )
+        return self.primary.unit_cost(t, timeline) * self.primary_share + self.secondary.unit_cost(
+            t, timeline
+        ) * (1.0 - self.primary_share)
 
     def cost_per_100km(self, t: int, timeline: Timeline) -> float:
-        return (
-            self.primary.cost_per_100km(t, timeline) * self.primary_share
-            + self.secondary.cost_per_100km(t, timeline) * (1.0 - self.primary_share)
+        return self.primary.cost_per_100km(
+            t, timeline
+        ) * self.primary_share + self.secondary.cost_per_100km(t, timeline) * (
+            1.0 - self.primary_share
         )

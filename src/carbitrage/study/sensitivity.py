@@ -736,9 +736,7 @@ class MonteCarlo:
     def mean_difference(self) -> float:
         return float(np.mean(self.differences))
 
-    def percentiles(
-        self, levels: Sequence[float] = (5, 25, 50, 75, 95)
-    ) -> dict[float, float]:
+    def percentiles(self, levels: Sequence[float] = (5, 25, 50, 75, 95)) -> dict[float, float]:
         """Percentiles of the difference."""
         values = np.percentile(self.differences, levels)
         return {float(level): float(value) for level, value in zip(levels, values, strict=True)}
@@ -795,9 +793,7 @@ def monte_carlo(
         z = z @ _cholesky(np.asarray(correlation, dtype=np.float64), len(names)).T
     u = _norm_cdf(z)
 
-    draws = np.column_stack(
-        [distributions[name].ppf(u[:, j]) for j, name in enumerate(names)]
-    )
+    draws = np.column_stack([distributions[name].ppf(u[:, j]) for j, name in enumerate(names)])
 
     npv: dict[str, list[float]] = {name: [] for name in (a, b)}
     differences = np.empty(n, dtype=np.float64)

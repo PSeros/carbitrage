@@ -88,9 +88,7 @@ def test_a_zero_rate_makes_pv_the_undiscounted_sum(
 
 
 @given(rate=rates, horizon=horizons, monthly=st.floats(min_value=1.0, max_value=2_000))
-def test_the_breakdown_always_sums_to_the_total(
-    rate: float, horizon: int, monthly: float
-) -> None:
+def test_the_breakdown_always_sums_to_the_total(rate: float, horizon: int, monthly: float) -> None:
     tl = Timeline(horizon_years=horizon, periods_per_year=12, rate=rate)
     series = CashFlowSeries.of(
         OneOff(-10_000.0, at=0, label=Component.ACQUISITION),
@@ -261,9 +259,7 @@ def test_value_after_is_consistent_with_the_underlying_curve(
     gas=st.floats(min_value=0.3, max_value=3.0),
     petrol=st.floats(min_value=0.5, max_value=4.0),
 )
-def test_a_bivalent_cost_lies_between_its_two_legs(
-    share: float, gas: float, petrol: float
-) -> None:
+def test_a_bivalent_cost_lies_between_its_two_legs(share: float, gas: float, petrol: float) -> None:
     from carbitrage.domain.energy import LPG, BivalentSource
 
     tl = Timeline(horizon_years=2, periods_per_year=12, rate=0.03)

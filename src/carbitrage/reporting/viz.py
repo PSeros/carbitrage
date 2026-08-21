@@ -102,9 +102,7 @@ def monte_carlo_plot(simulation: MonteCarlo, ax: Any = None, *, bins: int = 40) 
     probability = simulation.probability_a_beats_b()
     ax.set_xlabel(f"NPV advantage of {simulation.a} over {simulation.b}")
     ax.set_ylabel("Trials")
-    ax.set_title(
-        f"{simulation.a} wins in {probability:.1%} of {simulation.n:,} trials"
-    )
+    ax.set_title(f"{simulation.a} wins in {probability:.1%} of {simulation.n:,} trials")
     ax.legend(fontsize=8)
     return ax
 

@@ -105,9 +105,7 @@ class BusinessAssets(TaxTreatment):
         if self.vat_rate < 0:
             raise CarbitrageError(f"vat_rate must not be negative, got {self.vat_rate!r}")
         if not 0.0 <= self.business_share <= 1.0:
-            raise CarbitrageError(
-                f"business_share must lie in [0, 1], got {self.business_share!r}"
-            )
+            raise CarbitrageError(f"business_share must lie in [0, 1], got {self.business_share!r}")
         if not 0.0 <= self.marginal_tax_rate < 1.0:
             raise CarbitrageError(
                 f"marginal_tax_rate must lie in [0, 1), got {self.marginal_tax_rate!r}"

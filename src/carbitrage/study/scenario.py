@@ -53,9 +53,7 @@ class Scenario:
 
     def __post_init__(self) -> None:
         if self.probability is not None and not 0.0 <= self.probability <= 1.0:
-            raise CarbitrageError(
-                f"probability must lie in [0, 1], got {self.probability!r}"
-            )
+            raise CarbitrageError(f"probability must lie in [0, 1], got {self.probability!r}")
 
     def apply(self, case: Case) -> Case:
         """``case`` with this scenario's overrides applied."""
@@ -78,9 +76,7 @@ class ScenarioAnalysis:
         for candidate, result in zip(self.scenarios, self.results, strict=True):
             if candidate.name == scenario:
                 return result
-        raise KeyError(
-            f"{scenario!r} is not in this analysis: {[s.name for s in self.scenarios]}"
-        )
+        raise KeyError(f"{scenario!r} is not in this analysis: {[s.name for s in self.scenarios]}")
 
     def npv(self, alternative: str, scenario: str) -> float:
         """Net present value of one alternative under one scenario."""
@@ -220,9 +216,7 @@ class ScenarioSet:
     scenarios: tuple[Scenario, ...]
     include_base: bool = True
 
-    def __init__(
-        self, scenarios: Sequence[Scenario], *, include_base: bool = True
-    ) -> None:
+    def __init__(self, scenarios: Sequence[Scenario], *, include_base: bool = True) -> None:
         if not scenarios:
             raise CarbitrageError("a scenario set needs at least one scenario")
         names = [s.name for s in scenarios]

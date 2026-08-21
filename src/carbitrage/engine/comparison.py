@@ -83,9 +83,7 @@ class Case:
             )
             for alt in self.alternatives
         )
-        return ComparisonResult(
-            evaluations=evaluations, materiality=self.materiality, case=self
-        )
+        return ComparisonResult(evaluations=evaluations, materiality=self.materiality, case=self)
 
 
 def compare(

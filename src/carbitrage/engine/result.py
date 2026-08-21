@@ -161,9 +161,7 @@ class ComparisonResult:
                 f"{sorted(duplicates)}"
             )
         if not 0.0 <= self.materiality < 1.0:
-            raise CarbitrageError(
-                f"materiality must lie in [0, 1), got {self.materiality!r}"
-            )
+            raise CarbitrageError(f"materiality must lie in [0, 1), got {self.materiality!r}")
         object.__setattr__(self, "_by_name", {e.name: e for e in self.evaluations})
 
     # ----------------------------------------------------------------- access
@@ -418,9 +416,7 @@ class ComparisonResult:
         """
         from ..study.sensitivity import switch_point
 
-        return switch_point(
-            self._require_case("switch_point"), param, between, bounds=bounds
-        )
+        return switch_point(self._require_case("switch_point"), param, between, bounds=bounds)
 
     def switch_point_report(
         self,

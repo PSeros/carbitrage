@@ -35,9 +35,7 @@ def test_the_base_case_absorbs_the_unclaimed_probability(overlays: ScenarioSet) 
 
 def test_probabilities_may_not_exceed_one() -> None:
     with pytest.raises(CarbitrageError, match="exceeds 1"):
-        ScenarioSet(
-            [Scenario("a", {}, probability=0.7), Scenario("b", {}, probability=0.6)]
-        )
+        ScenarioSet([Scenario("a", {}, probability=0.7), Scenario("b", {}, probability=0.6)])
 
 
 def test_a_probability_must_be_a_probability() -> None:

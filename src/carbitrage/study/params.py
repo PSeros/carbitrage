@@ -321,9 +321,7 @@ def _set_path(obj: Any, path: str, value: Any) -> Any:
         raise CarbitrageError(f"{type(obj).__name__}.{name} is not an indexable sequence")
     target = _index(container, key, f"{type(obj).__name__}.{name}")
     new_target = (
-        _coerce(obj, name, target, value)
-        if not rest
-        else _set_path(target, ".".join(rest), value)
+        _coerce(obj, name, target, value) if not rest else _set_path(target, ".".join(rest), value)
     )
     replaced = tuple(new_target if item is target else item for item in container)
     return _rebuild(obj, name, replaced)

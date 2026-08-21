@@ -62,9 +62,7 @@ def test_vat_is_recovered_on_the_purchase_price(tl: Timeline, car: Vehicle) -> N
     result = compare(
         [alt], tl, usage=usage, tax=BusinessAssets(vat_rate=0.19, marginal_tax_rate=0.0)
     )
-    recovered = next(
-        line for line in result.detail("fleet") if line.description == "Input VAT"
-    )
+    recovered = next(line for line in result.detail("fleet") if line.description == "Input VAT")
     assert recovered.pv == pytest.approx(35_700.0 * 0.19 / 1.19, abs=1e-6)
 
 
@@ -77,9 +75,7 @@ def test_output_vat_is_remitted_on_the_residual(tl: Timeline, car: Vehicle) -> N
         tax=BusinessAssets(vat_rate=0.19, marginal_tax_rate=0.0),
     )
     remitted = [
-        line
-        for line in result.detail("fleet")
-        if line.description == "Output VAT on proceeds"
+        line for line in result.detail("fleet") if line.description == "Output VAT on proceeds"
     ]
     assert remitted
     assert all(line.pv < 0 for line in remitted)
@@ -122,11 +118,15 @@ def test_the_accelerated_schedule_front_loads_the_shield(tl: Timeline, car: Vehi
     alt = Alternative(vehicle=car, acquisition=Purchase(), label="fleet")
     usage = Usage(annual_km=0.0)
     straight = compare(
-        [alt], tl, usage=usage,
+        [alt],
+        tl,
+        usage=usage,
         tax=BusinessAssets(vat_rate=0.0, marginal_tax_rate=0.30, depreciation=STRAIGHT_LINE_6Y),
     )["fleet"].npv
     accelerated = compare(
-        [alt], tl, usage=usage,
+        [alt],
+        tl,
+        usage=usage,
         tax=BusinessAssets(vat_rate=0.0, marginal_tax_rate=0.30, depreciation=DEGRESSIVE_2026),
     )["fleet"].npv
     assert accelerated > straight
@@ -136,7 +136,9 @@ def test_a_shield_beyond_the_horizon_is_not_claimed(car: Vehicle) -> None:
     short = Timeline(horizon_years=2, periods_per_year=12, rate=0.03)
     alt = Alternative(vehicle=car, acquisition=Purchase(), label="fleet")
     result = compare(
-        [alt], short, usage=Usage(annual_km=0.0),
+        [alt],
+        short,
+        usage=Usage(annual_km=0.0),
         tax=BusinessAssets(vat_rate=0.0, marginal_tax_rate=0.30),
     )
     shields = [line for line in result.detail("fleet") if "Depreciation shield" in line.description]
@@ -152,14 +154,10 @@ def test_private_use_is_neither_deductible_nor_recoverable(tl: Timeline, car: Ve
     assert private < half < full
 
 
-def test_the_breakdown_still_sums_under_a_business_treatment(
-    tl: Timeline, car: Vehicle
-) -> None:
+def test_the_breakdown_still_sums_under_a_business_treatment(tl: Timeline, car: Vehicle) -> None:
     alt = Alternative(vehicle=car, acquisition=Purchase(), label="fleet")
     result = compare([alt], tl, usage=Usage(annual_km=15_000.0), tax=BusinessAssets())
-    assert sum(result.breakdown("fleet").values()) == pytest.approx(
-        result["fleet"].npv, abs=1e-6
-    )
+    assert sum(result.breakdown("fleet").values()) == pytest.approx(result["fleet"].npv, abs=1e-6)
 
 
 def test_tax_adjustments_are_labelled_as_tax(tl: Timeline, car: Vehicle) -> None:
