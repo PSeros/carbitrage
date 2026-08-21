@@ -9,7 +9,6 @@ Start with the [quick start](../README.md#quick-start) in the README, then:
 | [API tour](api-tour.md) | What you can ask a `ComparisonResult` |
 | [Traceability](traceability.md) | Where a number comes from, and why the components must sum |
 | [Validation](validation.md) | What the test suite checks, and the provenance of the figures |
-| [Deviations from the brief](deviations.md) | Two deliberate departures from the original specification |
 
 ## Package layout
 
