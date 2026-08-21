@@ -104,7 +104,6 @@ Lease the EV wins, above it Buy the EV now wins.
 | [API tour](docs/api-tour.md) | What you can ask a `ComparisonResult` |
 | [Traceability](docs/traceability.md) | Where a number comes from, and why the components must sum |
 | [Validation](docs/validation.md) | What the test suite checks |
-| [Deviations from the brief](docs/deviations.md) | Two deliberate departures from the original specification |
 
 `carbitrage` is layered — `core` → `domain` → `engine` → `study` → `reporting` —
 but everything public is re-exported at the top level, so `from carbitrage import X`
