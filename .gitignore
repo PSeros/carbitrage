@@ -12,6 +12,9 @@ wheels/
 # Generated reports
 carbitrage-report.xlsx
 
+# Build artefacts
+dist/
+
 # Tool caches
 .mypy_cache/
 .pytest_cache/

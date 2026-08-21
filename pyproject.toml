@@ -3,8 +3,20 @@ name = "carbitrage"
 version = "0.1.0"
 description = "Capital budgeting for mutually exclusive asset alternatives with unequal lives"
 readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 authors = [
     { name = "PSeros" }
+]
+keywords = ["capital-budgeting", "npv", "total-cost-of-ownership", "electric-vehicle"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Typing :: Typed",
 ]
 requires-python = ">=3.11"
 dependencies = [
@@ -59,5 +71,4 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["--strict-markers", "--strict-config"]
-markers = ["slow: re-runs the full monthly engine many times"]
+addopts = ["--strict-markers", "--strict-config", "--import-mode=importlib"]
