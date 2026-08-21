@@ -1,4 +1,4 @@
-"""End-to-end walkthrough of the reference workbook's decision.
+"""End-to-end walkthrough of the decision the README quick start sets up.
 
 Run with::
 
@@ -6,48 +6,134 @@ Run with::
 
 It prints the ranking, the traceable breakdown of the winner, the switch points,
 the tornado, a Monte Carlo run and a scenario table, then writes an .xlsx report.
+
+The case is built inline rather than imported: an example that cannot be read
+top to bottom is not an example.
 """
 
 from __future__ import annotations
 
-import sys
+from datetime import date
 from pathlib import Path
 
-# The workbook base case lives with the tests, which are the single source of
-# truth for it.  Adding the repository root to the path keeps this example from
-# becoming a second, drifting copy of the same assumptions.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from carbitrage import Case, Range, Triangular, advantage, monte_carlo, optimal_replacement_age
-from carbitrage.scenario import Scenario, ScenarioSet
-from tests.fixtures import workbook_base_case as wb
-
-DEFERRED_SUBSIDY = (
-    "alternatives[A4 Incumbent then EV].legs[Hyundai Inster (deferred)].incentives[0].available"
+from carbitrage import (
+    Alternative,
+    Case,
+    Household,
+    Incumbent,
+    Lease,
+    Purchase,
+    Range,
+    ReplacementChain,
+    TabulatedResiduals,
+    Timeline,
+    Triangular,
+    Usage,
+    Vehicle,
+    advantage,
+    monte_carlo,
+    optimal_replacement_age,
 )
-REPAIR = "alternatives[A4 Incumbent then EV].legs[LPG incumbent].acquisition.upfront_extra"
+from carbitrage.energy import LPG, BivalentSource, Electricity, Petrol
+from carbitrage.incentive import BAFA2026, ThgQuote, VehicleTaxExemption
+from carbitrage.residual import GeometricDecline
+from carbitrage.scenario import Scenario, ScenarioSet
+
+BUY = "Buy the EV now"
+LEASE = "Lease the EV"
+DEFER = "Repair now, replace in 2 years"
+
+DEFERRED_SUBSIDY = f"alternatives[{DEFER}].legs[Buy the EV in 2 years].incentives[0].available"
+REPAIR = f"alternatives[{DEFER}].legs[Keep the incumbent].acquisition.upfront_extra"
+
+
+def build_case() -> Case:
+    timeline = Timeline(
+        horizon_years=6,
+        periods_per_year=12,
+        rate=0.03,
+        energy_escalation=0.02,
+        vehicle_price_escalation=0.015,
+    )
+    household = Household(taxable_income=55_000, children=0)
+    usage = Usage(annual_km=12_000)
+
+    ev = Vehicle(
+        "Hyundai Inster",
+        price=23_900,
+        energy=Electricity(
+            15.1, real_world_factor=1.18, home_price=0.30, public_price=0.55, home_share=0.8
+        ),
+        residual=GeometricDecline(0.15),
+        insurance=750,
+        maintenance=300,
+        setup_cost=1_500,  # the wallbox
+        first_registration=date(2026, 1, 1),
+    )
+    incentives = (BAFA2026(), ThgQuote(300), VehicleTaxExemption())
+
+    buy = Alternative(ev, Purchase(), incentives, label=BUY)
+    lease = Alternative(
+        ev,
+        Lease(
+            239,
+            term_months=36,
+            included_km=10_000,
+            excess_km_rate=0.12,
+            renewal_escalation=0.05,
+        ),
+        incentives,
+        label=LEASE,
+    )
+
+    old = Vehicle(
+        "LPG incumbent",
+        price=1_500,  # its current market value
+        energy=BivalentSource(
+            LPG(7.5, price=0.99, volumetric_penalty=1.2),
+            Petrol(7.5, price=2.10),
+            primary_share=0.90,
+        ),
+        residual=TabulatedResiduals.from_values(1_500, {2: 800}),
+        insurance=550,
+        maintenance=900,
+        annual_tax=160,
+    )
+    defer = ReplacementChain(
+        Alternative(
+            old,
+            Purchase(upfront_extra=2_500, already_owned=True),
+            life_years=2,
+            disposes_incumbent=False,
+            label="Keep the incumbent",
+        ),
+        Alternative(ev, Purchase(), incentives, label="Buy the EV in 2 years"),
+        label=DEFER,
+    )
+
+    return Case(
+        alternatives=(buy, lease, defer),
+        timeline=timeline,
+        usage=usage,
+        household=household,
+        incumbent=Incumbent(old, market_value=1_500),
+    )
 
 
 def main() -> None:
-    case = Case(
-        alternatives=tuple(wb.all_alternatives()),
-        timeline=wb.timeline(),
-        usage=wb.usage(),
-        household=wb.household(),
-        incumbent=wb.incumbent(),
-    )
+    case = build_case()
     result = case.run()
 
     print("RANKING\n")
-    print(result.to_markdown(baseline=wb.A4))
+    print(result.to_markdown(baseline=DEFER))
 
     print("\n\nWHERE THE WINNER'S NUMBER COMES FROM\n")
     print(result.breakdown_markdown(result.best().name))
 
     print("\n\nSWITCH POINTS: buy now vs. keep the incumbent and defer\n")
     for param in ("annual_km", "lpg_price", "discount_rate", REPAIR):
-        print(" -", result.switch_point_report(param, (wb.A1, wb.A4)).describe())
-    print(" -", result.switch_point_report("annual_km", (wb.A1, wb.A2)).describe())
+        print(" -", result.switch_point_report(param, (BUY, DEFER)).describe())
+    print(" -", result.switch_point_report("annual_km", (BUY, LEASE)).describe())
 
     print("\n\nWHAT DRIVES THE MARGIN\n")
     print(
@@ -59,7 +145,7 @@ def main() -> None:
                 "discount_rate": Range(0.0, 0.08),
                 "residual_rate": Range(0.7, 1.4, relative=True),
             },
-            metric=advantage(wb.A1, wb.A4),
+            metric=advantage(BUY, DEFER),
         ).to_markdown()
     )
 
@@ -70,7 +156,7 @@ def main() -> None:
             "lpg_price": Triangular(0.80, 0.99, 1.40),
             "home_electricity_price": Triangular(0.22, 0.30, 0.45),
         },
-        between=(wb.A1, wb.A4),
+        between=(BUY, DEFER),
         n=1_000,
         correlation=[[1.0, 0.6], [0.6, 1.0]],
         seed=20260821,
@@ -90,11 +176,11 @@ def main() -> None:
 
     print("\n\nHOW LONG TO KEEP THE EV (equivalent annual cost by holding period)\n")
     table = optimal_replacement_age(
-        wb.alternative_a1(),
-        timeline=wb.timeline(),
+        case.alternatives[0],
+        timeline=case.timeline,
         candidates=[3, 4, 5, 6, 8, 10, 12],
-        usage=wb.usage(),
-        household=wb.household(),
+        usage=case.usage,
+        household=case.household,
     )
     for age, _pv, eac in table.as_rows():
         print(f"  {age:>4.0f} years   EAC {eac:>10,.0f}")
@@ -104,7 +190,7 @@ def main() -> None:
     try:
         from carbitrage.io import write_excel
 
-        written = write_excel(result, destination, baseline=wb.A4, scenarios=analysis)
+        written = write_excel(result, destination, baseline=DEFER, scenarios=analysis)
         print(f"\n\nWrote {written}")
     except ImportError:
         print("\n\n(install the 'excel' extra to also write an .xlsx report)")
