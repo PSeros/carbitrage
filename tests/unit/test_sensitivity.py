@@ -13,6 +13,7 @@ from carbitrage.errors import CarbitrageError
 from carbitrage.params import Uncertain
 from carbitrage.residual import GeometricDecline
 from carbitrage.sensitivity import LogNormal, Normal, Range, Triangular, Uniform
+from carbitrage.sensitivity.spec import _band
 
 # ------------------------------------------------------------------ params
 
@@ -76,6 +77,73 @@ def test_a_marked_parameter_can_be_swept_on_both_axes(marked: Case) -> None:
 
 
 # ----------------------------------------------------------- switch points
+
+
+BANDED = Uncertain(20_000.0, "banded_price", Range(19_000.0, 21_500.0))
+
+
+def case_with(price: Uncertain) -> Case:
+    """The two-alternative comparison, with ``price`` on the first one."""
+
+    def car(name: str, sticker: float) -> Vehicle:
+        return Vehicle(
+            name,
+            price=sticker,
+            energy=Petrol(consumption=7.0, price=1.80),
+            residual=GeometricDecline(0.15),
+        )
+
+    return Case(
+        alternatives=(
+            Alternative(car("a", price), Purchase(), label="a"),
+            Alternative(car("b", 21_000.0), Purchase(), label="b"),
+        ),
+        timeline=Timeline(horizon_years=3, periods_per_year=12, rate=0.03),
+        usage=Usage(annual_km=12_000.0),
+    )
+
+
+def test_a_switch_point_says_where_it_falls_against_the_declared_band() -> None:
+    found = case_with(BANDED).run().switch_point(BANDED, ("a", "b"))
+    assert found is not None
+    assert found.band == (19_000.0, 21_500.0)
+    assert found.is_plausible is True
+    assert "inside the 19,000.00 to 21,500.00 you called plausible" in found.describe()
+
+
+def test_a_crossing_outside_the_band_is_still_found_and_reported() -> None:
+    """The two questions stay separable: it can flip, and it flips out of reach."""
+    tight = Uncertain(20_000.0, "banded_price", Range(19_500.0, 20_100.0))
+    found = case_with(tight).run().switch_point("banded_price", ("a", "b"))
+    assert found is not None
+    assert found.value == pytest.approx(21_000.0, abs=1.0)  # found anyway, outside the band
+    assert found.is_plausible is False
+    assert "possible but not plausible" in found.describe()
+
+
+def test_an_undeclared_parameter_keeps_the_plain_sentence(marked: Case) -> None:
+    found = marked.run().switch_point(PRICE, ("a", "b"))
+    assert found is not None
+    assert found.band is None
+    assert found.is_plausible is None
+    assert found.describe().endswith("wins.")
+
+
+def test_a_bounded_spread_is_plausible_all_the_way_to_its_edges() -> None:
+    assert _band(Range(0.85, 1.35), base=0.99) == (0.85, 1.35)
+    assert _band(Triangular(800.0, 1_700.0, 4_000.0), base=1_700.0) == (800.0, 4_000.0)
+
+
+def test_an_unbounded_spread_is_read_at_its_deciles() -> None:
+    """A normal's support is the whole line, so the support cannot be the band."""
+    low, high = _band(Normal(mu=1_700.0, sigma=300.0), base=1_700.0)
+    decile = 1.2815515655446004  # z at the 90th percentile
+    assert low == pytest.approx(1_700.0 - decile * 300.0, abs=0.01)
+    assert high == pytest.approx(1_700.0 + decile * 300.0, abs=0.01)
+
+
+def test_a_relative_range_is_read_against_the_base() -> None:
+    assert _band(Range(0.75, 1.25, relative=True), base=12_000.0) == (9_000.0, 15_000.0)
 
 
 # ---------------------------------------------------------------- tornado

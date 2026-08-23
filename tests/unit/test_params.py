@@ -25,9 +25,11 @@ from carbitrage.params import (
     name_of,
     resolve,
     set_param,
+    spread_of,
     uncertainties,
 )
 from carbitrage.residual import GeometricDecline
+from carbitrage.sensitivity import Normal, Range, Triangular
 
 REPAIR = Uncertain(2_500.0, "repair_bill")
 LIFE = Uncertain(2.0, "incumbent_life")
@@ -88,6 +90,86 @@ def test_a_mark_says_what_it_is() -> None:
 def test_a_name_is_a_string_or_a_mark() -> None:
     assert name_of(REPAIR) == "repair_bill"
     assert name_of("annual_km") == "annual_km"
+
+
+# ---------------------------------------------------------------- spreads
+
+
+def test_a_mark_can_declare_what_is_known_beyond_the_base_value() -> None:
+    marked = Uncertain(1_700.0, "repair", Triangular(800.0, 1_700.0, 4_000.0))
+    assert marked == 1_700.0
+    assert marked.spread == Triangular(800.0, 1_700.0, 4_000.0)
+    assert repr(marked).endswith("Triangular(low=800.0, mode=1700.0, high=4000.0))")
+
+
+def test_a_base_value_its_own_spread_rules_out_is_a_contradiction() -> None:
+    with pytest.raises(CarbitrageError, match="rules out"):
+        Uncertain(7_000.0, "repair", Triangular(800.0, 1_700.0, 4_000.0))
+
+
+def test_an_unbounded_spread_admits_any_base_value() -> None:
+    assert Uncertain(-5.0, "anything", Normal(mu=10.0, sigma=2.0)) == -5.0
+
+
+def test_a_relative_range_bounds_no_value() -> None:
+    """Its endpoints are multipliers, so they say nothing about the anchor."""
+    assert Uncertain(12_000.0, "km", Range(0.75, 1.25, relative=True)) == 12_000.0
+
+
+def test_a_spread_has_to_be_a_spread() -> None:
+    with pytest.raises(CarbitrageError, match="Distribution or a Range"):
+        Uncertain(1.0, "nonsense", "wide")  # type: ignore[arg-type]
+
+
+def test_a_declared_spread_is_read_back_by_name(case: Case) -> None:
+    assert spread_of(case, "repair_bill") is None  # the fixture declares none
+    marked = Uncertain(1_700.0, "repair", Range(800.0, 4_000.0))
+    ev = Vehicle(
+        "EV",
+        price=20_000.0,
+        energy=Electricity(consumption=15.0, home_price=0.30),
+        residual=GeometricDecline(0.15),
+    )
+    declared = Case(
+        alternatives=(Alternative(ev, Purchase(upfront_extra=marked), label="a"),),
+        timeline=Timeline(horizon_years=3, periods_per_year=12, rate=0.03),
+    )
+    assert spread_of(declared, "repair") == Range(800.0, 4_000.0)
+    assert spread_of(declared, marked) == Range(800.0, 4_000.0)
+    assert spread_of(declared, "annual_km") is None
+
+
+def test_a_mark_keeps_its_spread_across_an_override(case: Case) -> None:
+    marked = Uncertain(1_700.0, "repair", Range(800.0, 4_000.0))
+    ev = Vehicle(
+        "EV",
+        price=20_000.0,
+        energy=Electricity(consumption=15.0, home_price=0.30),
+        residual=GeometricDecline(0.15),
+    )
+    declared = Case(
+        alternatives=(Alternative(ev, Purchase(upfront_extra=marked), label="a"),),
+        timeline=Timeline(horizon_years=3, periods_per_year=12, rate=0.03),
+    )
+    assert spread_of(set_param(declared, "repair", 3_000.0), "repair") == Range(800.0, 4_000.0)
+
+
+def test_a_study_may_probe_outside_the_declared_band() -> None:
+    """A spread informs an answer; it never restricts the question."""
+    marked = Uncertain(1_700.0, "repair", Triangular(800.0, 1_700.0, 4_000.0))
+    ev = Vehicle(
+        "EV",
+        price=20_000.0,
+        energy=Electricity(consumption=15.0, home_price=0.30),
+        residual=GeometricDecline(0.15),
+    )
+    declared = Case(
+        alternatives=(Alternative(ev, Purchase(upfront_extra=marked), label="a"),),
+        timeline=Timeline(horizon_years=3, periods_per_year=12, rate=0.03),
+    )
+    far_outside = set_param(declared, "repair", 99_000.0)
+    assert get_param(far_outside, "repair") == 99_000.0
+    assert spread_of(far_outside, "repair") == Triangular(800.0, 1_700.0, 4_000.0)
 
 
 # ------------------------------------------------------------- resolution

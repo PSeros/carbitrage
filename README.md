@@ -124,6 +124,25 @@ result.one_way(repair, [800, 2_500, 6_000])         # sweep the mark itself
 result.switch_point("repair_bill", (a, b))          # or the name it carries
 ```
 
+A third argument declares what you know beyond the base case — a distribution
+where the shape is known, a `Range` where only the span is — so that a tornado
+and a Monte Carlo over one parameter cannot rest on two different beliefs:
+
+```python
+repair = params.Uncertain(2_500, "repair_bill", Triangular(1_800, 2_500, 6_000))
+
+print(result.switch_point("repair_bill", (a, b)).describe())
+# repair_bill switches the answer at 2,117.02 (base case 2,500.00): below it
+# Repair wins, above it Buy wins.  That is inside the 1,800.00 to 6,000.00 you
+# called plausible.
+```
+
+A declaration **informs an answer and never restricts a question**. The switch
+point above is still solved across the whole domain, so a crossing far outside
+what you called plausible is still found and reported as such — *can* this flip
+and *would* it flip are different findings, and the library will not collapse
+them into one.
+
 An `Uncertain` *is* a float — the base case evaluates on it untouched — so the
 mark costs nothing until a study asks for it by name. Parameters nobody marked
 are named by one of the short aliases (`"annual_km"`, `"lpg_price"`,

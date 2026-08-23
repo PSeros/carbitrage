@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..errors import CarbitrageError
 from .aliases import FieldOf
-from .marks import Uncertain
+from .marks import Uncertain, _remark
 
 if TYPE_CHECKING:  # pragma: no cover
     pass
@@ -161,7 +161,7 @@ def _coerce(owner: Any, field_name: str, current: Any, value: Any) -> Any:
     if declared == "int":
         return round(float(value))
     if isinstance(current, Uncertain):
-        return Uncertain(value, current.label)
+        return _remark(value, current)
     return value
 
 

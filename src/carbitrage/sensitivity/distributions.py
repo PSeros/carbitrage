@@ -42,6 +42,17 @@ class Distribution(ABC):
     def mean(self) -> float:
         """The distribution's mean, used to report the base of a run."""
 
+    def support(self) -> tuple[float, float]:
+        """Where this distribution can produce values at all.
+
+        Unbounded by default, which is the safe answer: a caller that reads a
+        support as finite will treat everything outside it as impossible, and
+        claiming that wrongly is worse than claiming nothing.  It cannot be
+        inferred from :meth:`ppf`, whose inverse normal clamps its argument
+        away from 0 and 1 and so reports a finite value for an infinite tail.
+        """
+        return (-math.inf, math.inf)
+
 
 @dataclass(frozen=True)
 class Normal(Distribution):
@@ -86,6 +97,9 @@ class LogNormal(Distribution):
     def mean(self) -> float:
         return math.exp(self.mu_log + self.sigma_log**2 / 2.0)
 
+    def support(self) -> tuple[float, float]:
+        return (0.0, math.inf)
+
 
 @dataclass(frozen=True)
 class Uniform(Distribution):
@@ -103,6 +117,9 @@ class Uniform(Distribution):
 
     def mean(self) -> float:
         return (self.low + self.high) / 2.0
+
+    def support(self) -> tuple[float, float]:
+        return (self.low, self.high)
 
 
 @dataclass(frozen=True)
@@ -133,6 +150,9 @@ class Triangular(Distribution):
 
     def mean(self) -> float:
         return (self.low + self.mode + self.high) / 3.0
+
+    def support(self) -> tuple[float, float]:
+        return (self.low, self.high)
 
 
 def _norm_ppf(u: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:

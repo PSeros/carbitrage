@@ -28,7 +28,7 @@ Six names sit directly on `carbitrage` — `Timeline`, `Vehicle`, `Alternative`,
 | `carbitrage.acquisition` | `Purchase`, `Financed`, `Lease` |
 | `carbitrage.context` | `Household`, `Usage`, `Incumbent`, `Context` |
 | `carbitrage.comparison` | `Case`, `compare`, `Alternative`, `ComparisonResult`, `ReplacementChain` |
-| `carbitrage.params` | `Uncertain`, `get_param`, `set_param`, `resolve`, `find`, `describe_parameters` |
+| `carbitrage.params` | `Uncertain`, `spread_of`, `get_param`, `set_param`, `resolve`, `find`, `describe_parameters` |
 | `carbitrage.sensitivity` | `one_way`, `two_way`, `switch_point`, `tornado`, `monte_carlo`, the distributions |
 | `carbitrage.scenario` | `Scenario`, `ScenarioSet`, `ScenarioAnalysis` |
 | `carbitrage.reporting` | `write_excel`, `tornado_plot`, `one_way_plot`, `monte_carlo_plot`, `ranking_plot` |

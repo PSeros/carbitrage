@@ -21,7 +21,10 @@ keep = Alternative(renault, Purchase(upfront_extra=repair), label="Renault")
 result.one_way(repair, [800, 1_700, 3_000])       # the mark itself
 result.one_way("repair_bill", [800, 1_700, 3_000])  # or its label
 
+repair = Uncertain(1_700, "repair_bill", Triangular(800, 1_700, 4_000))  # + what you know
+
 params.uncertainties(case)   # every mark in the case, and where it sits
+params.spread_of(case, "repair_bill")   # what was declared about it
 params.find(case, "life")    # locate what nobody marked
 params.ALIASES               # the short names every case shares
 ```
@@ -29,6 +32,13 @@ params.ALIASES               # the short names every case shares
 A mark is an ordinary float, so the base case runs on it untouched. It shadows
 an alias of the same name, and one label may mark several fields, which is how
 you say *these move together*.
+
+The optional third argument declares what is known beyond the base value, once,
+instead of restating it at every call site. A declaration informs an answer and
+never restricts a question: `switch_point` still searches the whole domain and
+reports where the crossing falls relative to the band, rather than refusing to
+look outside it. Bounded spreads are plausible to their edges; an unbounded one
+is read at its deciles.
 
 **Sensitivity** — every one of these re-runs the full monthly cash-flow engine:
 

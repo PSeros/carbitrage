@@ -15,8 +15,8 @@ import numpy as np
 from scipy.optimize import brentq
 
 from ..errors import CarbitrageError
-from ..params import ParamName, get_param, name_of, set_param
-from .spec import _pretty
+from ..params import ParamName, get_param, name_of, set_param, spread_of
+from .spec import _band, _pretty
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..comparison import Case
@@ -41,13 +41,34 @@ class SwitchPoint:
     base_value: float
     favoured_below: str
     favoured_above: str
+    band: tuple[float, float] | None = None
+    """What the parameter's declared spread calls plausible, or ``None`` when it
+    declares none.  The search is never confined to it: whether the ranking can
+    flip at all, and whether it flips within reach, are different findings, and
+    collapsing them into one would lose the first."""
+
+    @property
+    def is_plausible(self) -> bool | None:
+        """Whether the crossing lies inside the declared band.  ``None`` if undeclared."""
+        if self.band is None:
+            return None
+        return self.band[0] <= self.value <= self.band[1]
 
     def describe(self) -> str:
         """A sentence a non-programmer can act on."""
-        return (
+        sentence = (
             f"{self.param} switches the answer at {_pretty(self.value)} "
             f"(base case {_pretty(self.base_value)}): below it {self.favoured_below} wins, "
             f"above it {self.favoured_above} wins."
+        )
+        if self.band is None:
+            return sentence
+        low, high = self.band
+        where = "inside" if self.is_plausible else "outside"
+        tail = "" if self.is_plausible else ", so the flip is possible but not plausible"
+        return (
+            f"{sentence}  That is {where} the {_pretty(low)} to {_pretty(high)} "
+            f"you called plausible{tail}."
         )
 
 
@@ -117,6 +138,8 @@ def switch_point_report(
     a, b = between
     shown = name_of(param)
     base = get_param(case, param)
+    declared = spread_of(case, param)
+    band = None if declared is None else _band(declared, base)
     low, high = _default_bounds(base) if bounds is None else bounds
     if low >= high:
         raise CarbitrageError(f"bounds must be increasing, got {(low, high)!r}")
@@ -149,6 +172,7 @@ def switch_point_report(
         base_value=base,
         favoured_below=below,
         favoured_above=above,
+        band=band,
     )
 
 

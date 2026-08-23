@@ -32,9 +32,11 @@ LEASE = "Lease the EV"
 DEFER = "Repair now, replace in 2 years"
 
 #: The repair bill is the number this decision turns on, so it is marked where
-#: it is written and addressed by name everywhere below.  The subsidy flag shows
-#: the other way of naming a parameter, by its dotted path.
-REPAIR = Uncertain(2_500, "repair_bill")
+#: it is written, addressed by name everywhere below, and carries what is known
+#: about it: a garage quote of 2,500 that could run to 6,000 once the car is up
+#: on the ramp.  The subsidy flag shows the other way of naming a parameter, by
+#: its dotted path.
+REPAIR = Uncertain(2_500, "repair_bill", Triangular(1_800, 2_500, 6_000))
 DEFERRED_SUBSIDY = f"alternatives[{DEFER}].legs[Buy the EV in 2 years].incentives[0].available"
 
 

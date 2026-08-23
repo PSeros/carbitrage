@@ -26,15 +26,17 @@ from .access import (
     scale_param,
     set_param,
     set_params,
+    spread_of,
     uncertainties,
 )
 from .aliases import ALIASES, FieldOf
-from .marks import ParamName, Uncertain, name_of
+from .marks import ParamName, Spread, Uncertain, name_of
 
 __all__ = [
     "ALIASES",
     "FieldOf",
     "ParamName",
+    "Spread",
     "Uncertain",
     "describe_parameters",
     "find",
@@ -44,5 +46,6 @@ __all__ = [
     "scale_param",
     "set_param",
     "set_params",
+    "spread_of",
     "uncertainties",
 ]

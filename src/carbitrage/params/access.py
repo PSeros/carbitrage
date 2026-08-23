@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from ..errors import CarbitrageError
 from .aliases import ALIASES, FieldOf
-from .marks import ParamName, name_of
+from .marks import ParamName, Spread, name_of
 from .paths import _get_path, _marks, _paths_matching, _set_path, _walk
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -22,6 +22,7 @@ __all__ = [
     "scale_param",
     "set_param",
     "set_params",
+    "spread_of",
     "uncertainties",
 ]
 
@@ -149,6 +150,22 @@ def find(case: Case, text: str) -> list[str]:
     """
     needle = text.lower()
     return [path for path in describe_parameters(case) if needle in path.lower()]
+
+
+def spread_of(case: Case, name: ParamName) -> Spread | None:
+    """What was declared about a parameter beyond its base value, if anything.
+
+    ``None`` where nothing was declared, and also where one label covers several
+    fields whose declarations differ: a spread informs an answer and never
+    restricts a question, so an ambiguous one is dropped rather than raised on.
+    """
+    declared: list[Spread | None] = [
+        getattr(_get_path(case, path), "spread", None) for path in resolve(case, name)
+    ]
+    first = declared[0]
+    if first is None or any(other != first for other in declared[1:]):
+        return None
+    return first
 
 
 def uncertainties(case: Case) -> dict[str, tuple[str, ...]]:
