@@ -10,7 +10,7 @@ import numpy as np
 import numpy.typing as npt
 
 from ..errors import CarbitrageError
-from ..params import set_param
+from ..params import ParamName, name_of, set_param
 from .metrics import Metric, best_margin
 from .spec import _pretty
 
@@ -88,7 +88,7 @@ class TwoWayGrid:
 
 def one_way(
     case: Case,
-    param: str,
+    param: ParamName,
     values: Sequence[float],
     *,
     metric: Metric | None = None,
@@ -97,7 +97,8 @@ def one_way(
 
     Args:
         case: The base case.
-        param: Alias or dotted path of the parameter to vary.
+        param: The parameter to vary: an ``Uncertain`` mark, an alias, or a
+            dotted path.
         values: The values to evaluate.
         metric: Scalar recorded alongside the present values.  Defaults to the
             winner's margin over the runner-up.
@@ -116,7 +117,7 @@ def one_way(
         metrics.append(read(result))
         winners.append(result.best().name)
     return OneWayGrid(
-        param=param,
+        param=name_of(param),
         values=tuple(float(v) for v in values),
         names=names,
         npv=npv,
@@ -127,9 +128,9 @@ def one_way(
 
 def two_way(
     case: Case,
-    row_param: str,
+    row_param: ParamName,
     row_values: Sequence[float],
-    column_param: str,
+    column_param: ParamName,
     column_values: Sequence[float],
     *,
     metric: Metric | None = None,
@@ -154,9 +155,9 @@ def two_way(
             row_winners.append(result.best().name)
         winners.append(tuple(row_winners))
     return TwoWayGrid(
-        row_param=row_param,
+        row_param=name_of(row_param),
         row_values=tuple(float(v) for v in row_values),
-        column_param=column_param,
+        column_param=name_of(column_param),
         column_values=tuple(float(v) for v in column_values),
         values=grid,
         winners=tuple(winners),

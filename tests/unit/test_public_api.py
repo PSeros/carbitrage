@@ -83,12 +83,17 @@ SCOPES: dict[str, list[str]] = {
     "params": [
         "ALIASES",
         "FieldOf",
+        "ParamName",
+        "Uncertain",
         "describe_parameters",
+        "find",
         "get_param",
+        "name_of",
         "resolve",
         "scale_param",
         "set_param",
         "set_params",
+        "uncertainties",
     ],
     "rates": [
         "Escalation",

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ..errors import CarbitrageError
-from ..params import get_param, resolve, scale_param, set_param
+from ..params import ParamName, get_param, name_of, resolve, scale_param, set_param
 from .metrics import Metric, best_margin
 from .spec import Range, _pretty
 
@@ -86,7 +86,7 @@ class Tornado:
 
 def tornado(
     case: Case,
-    params: Sequence[str] | Mapping[str, Range],
+    params: Sequence[ParamName] | Mapping[ParamName, Range],
     *,
     metric: Metric | None = None,
     default_range: Range | None = None,
@@ -105,7 +105,7 @@ def tornado(
     """
     read = best_margin() if metric is None else metric
     span_default = Range(0.75, 1.25, relative=True) if default_range is None else default_range
-    ranges: dict[str, Range] = (
+    ranges: dict[ParamName, Range] = (
         dict(params) if isinstance(params, Mapping) else dict.fromkeys(params, span_default)
     )
     if not ranges:
@@ -126,7 +126,7 @@ def tornado(
             low_value, high_value = span.low, span.high
         bars.append(
             TornadoBar(
-                param=name,
+                param=name_of(name),
                 low_value=low_value,
                 high_value=high_value,
                 low_metric=read(low_case.run()),
@@ -140,7 +140,7 @@ def tornado(
     return Tornado(base_metric=base_metric, bars=tuple(bars))
 
 
-def _base_or_nan(case: Case, name: str) -> float:
+def _base_or_nan(case: Case, name: ParamName) -> float:
     """The base value, or NaN when an alias covers parameters that disagree."""
     try:
         return get_param(case, name)

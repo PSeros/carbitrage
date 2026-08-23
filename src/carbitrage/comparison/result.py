@@ -16,6 +16,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
     import numpy.typing as _npt
 
+    from ..params import ParamName
     from ..sensitivity import (
         Distribution,
         Metric,
@@ -298,7 +299,7 @@ class ComparisonResult:
         return self.case
 
     def one_way(
-        self, param: str, values: Sequence[float], *, metric: Metric | None = None
+        self, param: ParamName, values: Sequence[float], *, metric: Metric | None = None
     ) -> OneWayGrid:
         """Sweep one parameter.  See :func:`carbitrage.study.sensitivity.one_way`."""
         # An upward edge into `study`, by design.  These six methods are
@@ -311,9 +312,9 @@ class ComparisonResult:
 
     def two_way(
         self,
-        row_param: str,
+        row_param: ParamName,
         row_values: Sequence[float],
-        column_param: str,
+        column_param: ParamName,
         column_values: Sequence[float],
         *,
         metric: Metric | None = None,
@@ -332,7 +333,7 @@ class ComparisonResult:
 
     def switch_point(
         self,
-        param: str,
+        param: ParamName,
         between: tuple[str, str],
         *,
         bounds: tuple[float, float] | None = None,
@@ -347,7 +348,7 @@ class ComparisonResult:
 
     def switch_point_report(
         self,
-        param: str,
+        param: ParamName,
         between: tuple[str, str],
         *,
         bounds: tuple[float, float] | None = None,
@@ -361,7 +362,7 @@ class ComparisonResult:
 
     def tornado(
         self,
-        params: Sequence[str] | Mapping[str, Range],
+        params: Sequence[ParamName] | Mapping[ParamName, Range],
         *,
         metric: Metric | None = None,
         default_range: Range | None = None,
@@ -378,7 +379,7 @@ class ComparisonResult:
 
     def monte_carlo(
         self,
-        distributions: Mapping[str, Distribution],
+        distributions: Mapping[ParamName, Distribution],
         *,
         between: tuple[str, str],
         n: int = 2_000,

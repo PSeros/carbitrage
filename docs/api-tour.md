@@ -10,6 +10,26 @@ result.to_markdown(); result.to_frame()
 result.breakdown_frame(decimals=0)  # components x alternatives, side by side
 ```
 
+**Naming the parameter** — a study has to say *which* number it is varying.
+Mark the number where you write it and it names itself; otherwise use one of
+the short aliases, or the dotted path:
+
+```python
+repair = Uncertain(1_700, "repair_bill")          # a float that carries a name
+keep = Alternative(renault, Purchase(upfront_extra=repair), label="Renault")
+...
+result.one_way(repair, [800, 1_700, 3_000])       # the mark itself
+result.one_way("repair_bill", [800, 1_700, 3_000])  # or its label
+
+params.uncertainties(case)   # every mark in the case, and where it sits
+params.find(case, "life")    # locate what nobody marked
+params.ALIASES               # the short names every case shares
+```
+
+A mark is an ordinary float, so the base case runs on it untouched. It shadows
+an alias of the same name, and one label may mark several fields, which is how
+you say *these move together*.
+
 **Sensitivity** — every one of these re-runs the full monthly cash-flow engine:
 
 ```python

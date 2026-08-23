@@ -22,6 +22,7 @@ from carbitrage.comparison import ReplacementChain, optimal_replacement_age
 from carbitrage.context import Household, Incumbent, Usage
 from carbitrage.energy import LPG, BivalentSource, Electricity, Petrol
 from carbitrage.incentives import BAFA2026, ThgQuote, VehicleTaxExemption
+from carbitrage.params import Uncertain
 from carbitrage.residual import GeometricDecline, TabulatedResiduals
 from carbitrage.scenario import Scenario, ScenarioSet
 from carbitrage.sensitivity import Range, Triangular, advantage, monte_carlo
@@ -30,8 +31,11 @@ BUY = "Buy the EV now"
 LEASE = "Lease the EV"
 DEFER = "Repair now, replace in 2 years"
 
+#: The repair bill is the number this decision turns on, so it is marked where
+#: it is written and addressed by name everywhere below.  The subsidy flag shows
+#: the other way of naming a parameter, by its dotted path.
+REPAIR = Uncertain(2_500, "repair_bill")
 DEFERRED_SUBSIDY = f"alternatives[{DEFER}].legs[Buy the EV in 2 years].incentives[0].available"
-REPAIR = f"alternatives[{DEFER}].legs[Keep the incumbent].acquisition.upfront_extra"
 
 
 def build_case() -> Case:
@@ -89,7 +93,7 @@ def build_case() -> Case:
     defer = ReplacementChain(
         Alternative(
             old,
-            Purchase(upfront_extra=2_500, already_owned=True),
+            Purchase(upfront_extra=REPAIR, already_owned=True),
             life_years=2,
             disposes_incumbent=False,
             label="Keep the incumbent",

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from ..errors import CarbitrageError
-from ..params import set_params
+from ..params import ParamName, set_params
 from .analysis import ScenarioAnalysis
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -25,8 +25,8 @@ class Scenario:
 
     Args:
         name: Display name.
-        overrides: Parameter name to value, using the same aliases and dotted
-            paths as :mod:`carbitrage.study.params`.
+        overrides: Parameter name to value, named the same three ways as
+            everywhere else: an ``Uncertain`` mark, an alias, or a dotted path.
         probability: Subjective probability.  Optional: leave it unset and only
             the regret analysis is meaningful, which is the honest position when
             the odds are unknown.
@@ -34,7 +34,7 @@ class Scenario:
     """
 
     name: str
-    overrides: Mapping[str, float] = field(default_factory=dict)
+    overrides: Mapping[ParamName, float] = field(default_factory=dict)
     probability: float | None = None
     note: str = ""
 

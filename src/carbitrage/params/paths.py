@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..errors import CarbitrageError
 from .aliases import FieldOf
+from .marks import Uncertain
 
 if TYPE_CHECKING:  # pragma: no cover
     pass
@@ -48,6 +49,16 @@ def _walk(obj: Any, prefix: str) -> Iterator[tuple[str, float]]:
             yield path, float(value)
         elif _is_node(value):
             yield from _walk(value, path)
+
+
+def _marks(obj: Any, prefix: str = "") -> Iterator[tuple[str, str]]:
+    """Yield ``(label, path)`` for every marked value reachable from ``obj``."""
+    for name, value in _children(obj):
+        path = f"{prefix}.{name}" if prefix else name
+        if isinstance(value, Uncertain):
+            yield value.label, path
+        elif _is_node(value):
+            yield from _marks(value, path)
 
 
 def _paths_matching(obj: Any, spec: FieldOf, prefix: str = "") -> Iterator[str]:
@@ -135,6 +146,9 @@ def _coerce(owner: Any, field_name: str, current: Any, value: Any) -> Any:
     switch a flag off — but a field annotated ``bool`` should not end up holding
     a float, and a count of children should stay an integer.
 
+    A mark is kept, so that a case which has been swept can be swept again —
+    except on those fields, where the declared type wins.
+
     The *declared* type decides, never the current value's runtime type.  A field
     annotated ``float`` that happens to hold ``12000`` because it was
     constructed from an integer literal is still a continuous parameter, and
@@ -146,6 +160,8 @@ def _coerce(owner: Any, field_name: str, current: Any, value: Any) -> Any:
         return bool(value)
     if declared == "int":
         return round(float(value))
+    if isinstance(current, Uncertain):
+        return Uncertain(value, current.label)
     return value
 
 

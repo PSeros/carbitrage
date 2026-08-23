@@ -15,7 +15,7 @@ import numpy as np
 from scipy.optimize import brentq
 
 from ..errors import CarbitrageError
-from ..params import get_param, set_param
+from ..params import ParamName, get_param, name_of, set_param
 from .spec import _pretty
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -70,7 +70,7 @@ class NoSwitchPoint:
 
 def switch_point(
     case: Case,
-    param: str,
+    param: ParamName,
     between: tuple[str, str],
     *,
     bounds: tuple[float, float] | None = None,
@@ -86,7 +86,8 @@ def switch_point(
 
     Args:
         case: The base case.
-        param: Alias or dotted path of the parameter to solve for.
+        param: The parameter to solve for: an ``Uncertain`` mark, an alias,
+            or a dotted path.
         between: The two alternatives whose order should flip.
         bounds: Domain to search.  Defaults to a decade either side of the base
             value, which covers the plausible range of most inputs.
@@ -105,7 +106,7 @@ def switch_point(
 
 def switch_point_report(
     case: Case,
-    param: str,
+    param: ParamName,
     between: tuple[str, str],
     *,
     bounds: tuple[float, float] | None = None,
@@ -114,6 +115,7 @@ def switch_point_report(
 ) -> SwitchPoint | NoSwitchPoint:
     """As :func:`switch_point`, but explains itself when there is no crossing."""
     a, b = between
+    shown = name_of(param)
     base = get_param(case, param)
     low, high = _default_bounds(base) if bounds is None else bounds
     if low >= high:
@@ -126,13 +128,13 @@ def switch_point_report(
     xs, ys = _scan(differential, low, high, samples)
     if len(xs) < 2:
         return NoSwitchPoint(
-            param, between, "the parameter is not valid anywhere in this domain", (low, high)
+            shown, between, "the parameter is not valid anywhere in this domain", (low, high)
         )
     bracket = _first_sign_change(xs, ys)
     if bracket is None:
         direction = "always" if ys[0] > 0 else "never"
         return NoSwitchPoint(
-            param,
+            shown,
             between,
             f"{a} {direction} beats {b} across the whole domain, so the ranking never flips",
             (low, high),
@@ -141,7 +143,7 @@ def switch_point_report(
     root = float(brentq(differential, lo, hi, xtol=tolerance))
     below, above = (b, a) if differential(lo) < 0 else (a, b)
     return SwitchPoint(
-        param=param,
+        param=shown,
         value=root,
         between=between,
         base_value=base,

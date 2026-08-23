@@ -107,6 +107,30 @@ annual_km switches the answer at 10,357.80 (base case 12,000.00): below it
 Lease the EV wins, above it Buy the EV now wins.
 ```
 
+## Naming the parameter you want to vary
+
+Every sensitivity question needs to say which number it varies. Mark that number
+where you write it, and it carries its own name:
+
+```python
+from carbitrage import params
+
+repair = params.Uncertain(2_500, "repair_bill")     # the repair bill, and its name
+
+cb.Alternative(old, acquisition.Purchase(upfront_extra=repair, already_owned=True),
+               life_years=2, disposes_incumbent=False, label="Keep the incumbent")
+
+result.one_way(repair, [800, 2_500, 6_000])         # sweep the mark itself
+result.switch_point("repair_bill", (a, b))          # or the name it carries
+```
+
+An `Uncertain` *is* a float — the base case evaluates on it untouched — so the
+mark costs nothing until a study asks for it by name. Parameters nobody marked
+are named by one of the short aliases (`"annual_km"`, `"lpg_price"`,
+`"discount_rate"`, …) or by a dotted path
+(`"alternatives[…].legs[…].acquisition.upfront_extra"`); `params.find(case,
+"life")` locates one, and `params.uncertainties(case)` lists the marks.
+
 ## Documentation
 
 | Page | What it covers |

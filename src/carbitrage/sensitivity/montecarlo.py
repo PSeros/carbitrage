@@ -10,7 +10,7 @@ import numpy as np
 import numpy.typing as npt
 
 from ..errors import CarbitrageError
-from ..params import resolve, set_params
+from ..params import ParamName, name_of, resolve, set_params
 from .distributions import Distribution, _norm_cdf
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -69,7 +69,7 @@ class MonteCarlo:
 
 def monte_carlo(
     case: Case,
-    distributions: Mapping[str, Distribution],
+    distributions: Mapping[ParamName, Distribution],
     *,
     between: tuple[str, str],
     n: int = 2_000,
@@ -125,7 +125,7 @@ def monte_carlo(
         b=b,
         differences=differences,
         npv={name: np.asarray(values, dtype=np.float64) for name, values in npv.items()},
-        params=names,
+        params=tuple(name_of(name) for name in names),
         draws=draws,
     )
 
