@@ -311,4 +311,125 @@ def test_a_declared_range_is_refused_rather_than_read_as_uniform() -> None:
         case_with(BANDED).run().monte_carlo([BANDED], between=("a", "b"), n=8)
 
 
+# ------------------------------------------------ monte carlo across N
+
+SAMPLED = Uncertain(20_000.0, "sampled_price", Triangular(18_000.0, 20_000.0, 23_000.0))
+
+
+@pytest.fixture
+def three() -> Case:
+    """Three alternatives, the first of them holding a sampled price."""
+
+    def car(name: str, sticker: float | Uncertain) -> Vehicle:
+        return Vehicle(
+            name,
+            price=sticker,
+            energy=Petrol(consumption=7.0, price=1.80),
+            residual=GeometricDecline(0.15),
+        )
+
+    return Case(
+        alternatives=(
+            Alternative(car("a", SAMPLED), Purchase(), label="a"),
+            Alternative(car("b", 21_000.0), Purchase(), label="b"),
+            Alternative(car("c", 25_000.0), Purchase(), label="c"),
+        ),
+        timeline=Timeline(horizon_years=3, periods_per_year=12, rate=0.03),
+        usage=Usage(annual_km=12_000.0),
+    )
+
+
+def test_a_simulation_carries_every_alternative_by_default(three: Case) -> None:
+    simulation = three.run().monte_carlo(n=64, seed=0)
+    assert simulation.names == ("a", "b", "c")
+    assert set(simulation.npv) == {"a", "b", "c"}
+    assert all(values.size == 64 for values in simulation.npv.values())
+
+
+def test_between_narrows_the_simulation_and_orders_it(three: Case) -> None:
+    simulation = three.run().monte_carlo(between=("c", "a"), n=64, seed=0)
+    assert simulation.names == ("c", "a")
+
+
+def test_narrowing_does_not_change_what_the_shared_alternatives_do(three: Case) -> None:
+    """The draws are the parameters', not the alternatives': same seed, same trials."""
+    everything = three.run().monte_carlo(n=64, seed=3)
+    narrowed = three.run().monte_carlo(between=("a", "b"), n=64, seed=3)
+    assert np.allclose(everything.npv["a"], narrowed.npv["a"])
+    assert np.allclose(everything.npv["b"], narrowed.npv["b"])
+
+
+def test_win_shares_are_a_distribution_over_the_alternatives(three: Case) -> None:
+    simulation = three.run().monte_carlo(n=128, seed=0)
+    share = simulation.win_share()
+    assert set(share) == {"a", "b", "c"}
+    assert sum(share.values()) == pytest.approx(1.0)
+
+
+def test_regret_is_never_negative_and_zero_for_the_trial_winner(three: Case) -> None:
+    simulation = three.run().monte_carlo(n=64, seed=0)
+    regret = simulation.regret()
+    stacked = np.column_stack([regret[name] for name in simulation.names])
+    assert stacked.min() >= 0.0
+    assert np.allclose(stacked.min(axis=1), 0.0)
+
+
+def test_expected_regret_ranks_exactly_as_expected_value_does(three: Case) -> None:
+    """E[max] is the same constant for everyone, so the two orderings coincide."""
+    simulation = three.run().monte_carlo(n=128, seed=0)
+    by_value = sorted(simulation.names, key=lambda n: -simulation.expected_npv()[n])
+    by_regret = sorted(simulation.names, key=lambda n: simulation.expected_regret()[n])
+    assert by_value == by_regret
+    assert simulation.best_by_expected_value() == by_value[0]
+
+
+def test_a_probability_is_read_from_the_paired_columns(three: Case) -> None:
+    simulation = three.run().monte_carlo(n=64, seed=0)
+    paired = np.mean(simulation.npv["a"] > simulation.npv["b"])
+    assert simulation.probability("a", "b") == pytest.approx(paired)
+    assert simulation.probability("b", "a") == pytest.approx(1.0 - paired)
+
+
+def test_an_alternative_beaten_everywhere_is_named_as_droppable(three: Case) -> None:
+    simulation = three.run().monte_carlo(n=64, seed=0)
+    assert simulation.win_share()["c"] == 0.0
+    assert "c" in simulation.never_best()
+
+
+def test_a_pairwise_matrix_covers_every_ordered_pair(three: Case) -> None:
+    simulation = three.run().monte_carlo(n=64, seed=0)
+    matrix = simulation.pairwise()
+    assert len(matrix) == 6
+    assert matrix[("a", "b")] == pytest.approx(1.0 - matrix[("b", "a")])
+
+
+def test_a_simulation_reports_both_decision_rules(three: Case) -> None:
+    simulation = three.run().monte_carlo(n=64, seed=0)
+    text = simulation.describe()
+    assert "Highest expected value" in text
+    assert "Regret at the 95th percentile" in text
+    assert "| Alternative | Expected |" in simulation.to_markdown()
+
+
+def test_a_name_the_simulation_does_not_carry_is_refused(three: Case) -> None:
+    simulation = three.run().monte_carlo(between=("a", "b"), n=8, seed=0)
+    with pytest.raises(CarbitrageError, match="not in this simulation"):
+        simulation.probability("a", "c")
+
+
+def test_between_needs_two_alternatives_to_compare(three: Case) -> None:
+    with pytest.raises(CarbitrageError, match="at least two alternatives"):
+        three.run().monte_carlo(between=("a",), n=8, seed=0)
+
+
+def test_between_refuses_a_name_the_case_does_not_hold(three: Case) -> None:
+    with pytest.raises(CarbitrageError, match="not an alternative in this case"):
+        three.run().monte_carlo(between=("a", "z"), n=8, seed=0)
+
+
+def test_between_refuses_the_same_alternative_twice(three: Case) -> None:
+    with pytest.raises(CarbitrageError, match="names 'a' twice"):
+        three.run().monte_carlo(between=("a", "a"), n=8, seed=0)
+
+
 # ------------------------------------------------- the result-level surface

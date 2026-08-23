@@ -149,12 +149,18 @@ def main() -> None:
             "lpg_price": Triangular(0.80, 0.99, 1.40),
             "home_electricity_price": Triangular(0.22, 0.30, 0.45),
         },
-        between=(BUY, DEFER),
         n=1_000,
         correlation=[[1.0, 0.6], [0.6, 1.0]],
         seed=20260821,
     )
     print(simulation.describe())
+    print()
+    print(simulation.to_markdown())
+    print()
+    print(
+        f"Buy beats deferring in {simulation.probability(BUY, DEFER):.1%} of trials, "
+        f"and leasing in {simulation.probability(BUY, LEASE):.1%}."
+    )
 
     print("\n\nSCENARIOS\n")
     overlays = ScenarioSet(

@@ -381,7 +381,7 @@ class ComparisonResult:
         self,
         distributions: Sequence[ParamName] | Mapping[ParamName, Distribution | None] | None = None,
         *,
-        between: tuple[str, str],
+        between: Sequence[str] | None = None,
         n: int = 2_000,
         correlation: _npt.NDArray[np.float64] | Sequence[Sequence[float]] | None = None,
         seed: int | None = None,

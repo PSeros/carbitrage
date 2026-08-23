@@ -50,7 +50,7 @@ a simulation needs to know how likely each value in it is. An explicit range or
 distribution passed at the call site always wins.
 
 Omit the parameters entirely and the study reads the case: `tornado()` ranks
-everything that declares a spread, `monte_carlo(between=…)` samples everything
+everything that declares a spread, `monte_carlo()` samples everything
 that declares a distribution, passing over the ranges it cannot sample. Both go
 in tree order, which is the order `params.spreads(case)` reports and the order
 `correlation` is indexed by.
@@ -67,15 +67,38 @@ result.tornado({"annual_km": Range(5_000, 30_000),
 result.tornado([repair, annual_km])            # each across the range it declared
 result.tornado()                               # everything the case declares
 result.monte_carlo({"lpg_price": Triangular(0.80, 0.99, 1.40)},
-                   between=(a, b), correlation=[[1, .8], [.8, 1]], n=5_000)
-result.monte_carlo([repair], between=(a, b))   # sampling what the mark declared
-result.monte_carlo(between=(a, b))             # everything the case declares
+                   correlation=[[1, .8], [.8, 1]], n=5_000)
+result.monte_carlo([repair])                   # sampling what the mark declared
+result.monte_carlo()                           # every parameter, every alternative
+result.monte_carlo(between=(a, b))             # narrowed to two of them
 ```
 
-`monte_carlo` returns the distribution of the **difference**, not of each
-alternative separately, and reports `P(a beats b)`. Two alternatives that share
-an energy price move together; the spread of each one alone says nothing about
-how often one wins.
+`monte_carlo` carries **every alternative** unless `between` narrows it, and
+every trial evaluates all of them against the same draw, so the columns of
+`npv` are paired. That pairing is the content of the simulation: two
+alternatives that share an energy price move together, and the spread of each
+one alone says nothing about how often one wins.
+
+Which reading is licensed by what:
+
+| Reading | Needs |
+|---|---|
+| `expected_npv()` | the marginals alone — expectation is linear, so `E[a] - E[b] == E[a - b]` |
+| `npv_percentiles(name)` | the marginals — one alternative's own exposure, a budgeting question |
+| `probability(a, b)`, `win_share()`, `regret()` | the **pairing**, and nothing else will do |
+
+`win_share()` is unit-free and so blind to magnitude: an option winning sixty
+per cent of trials by twenty euros and losing the rest by three thousand has
+the best win share and is the worst choice. It is supporting evidence; the
+headline is `expected_npv()`, with `regret_percentile()` as the second rule —
+the same pair `ScenarioSet` reports, and their disagreement is the finding.
+`pairwise()` is a diagnostic, not a ranking: each trial orders the alternatives
+totally, but the majority relation across trials can be intransitive.
+
+`never_best()` names the alternatives beaten in every trial, which is the
+honest licence to drop them. `undecided()` names the pairs within a coin flip
+of each other, where cost has stopped discriminating and what the model refuses
+to monetise is what is left to decide on.
 
 **Scenarios** — expected value *and* minimax regret, because when probabilities
 are soft the two rules can disagree, and that disagreement is the finding:

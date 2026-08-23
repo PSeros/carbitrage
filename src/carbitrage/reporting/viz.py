@@ -15,11 +15,21 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from ..errors import CarbitrageError
+
 if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import Sequence
+
     from ..comparison import ComparisonResult
     from ..sensitivity import MonteCarlo, OneWayGrid, Tornado
 
-__all__ = ["monte_carlo_plot", "one_way_plot", "ranking_plot", "tornado_plot"]
+__all__ = [
+    "difference_plot",
+    "npv_density_plot",
+    "one_way_plot",
+    "ranking_plot",
+    "tornado_plot",
+]
 
 
 def _axes(ax: Any, **kwargs: Any) -> Any:
@@ -87,22 +97,121 @@ def one_way_plot(grid: OneWayGrid, ax: Any = None) -> Any:
     return ax
 
 
-def monte_carlo_plot(simulation: MonteCarlo, ax: Any = None, *, bins: int = 40) -> Any:
+def _pair(simulation: MonteCarlo, between: Sequence[str] | None) -> tuple[str, str]:
+    """The two alternatives whose difference is being drawn.
+
+    A difference is defined between exactly two things, so a simulation carrying
+    more than two is asked which pair rather than guessed at.
+    """
+    if between is not None:
+        names = tuple(between)
+        if len(names) != 2:
+            raise CarbitrageError(
+                f"a difference is drawn between exactly two alternatives, got {list(names)}"
+            )
+        return names[0], names[1]
+    if len(simulation.names) != 2:
+        raise CarbitrageError(
+            f"this simulation carries {len(simulation.names)} alternatives, so there is no one "
+            "difference to draw; name the pair with between=(a, b), or use npv_density_plot to "
+            "show all of them at once"
+        )
+    return simulation.names[0], simulation.names[1]
+
+
+def difference_plot(
+    simulation: MonteCarlo,
+    ax: Any = None,
+    *,
+    between: Sequence[str] | None = None,
+    bins: int = 40,
+    colour: str = "#4C72B0",
+) -> Any:
     """The distribution of the *difference* between two alternatives.
 
-    Plotting the difference rather than two overlaid distributions is the point:
-    the alternatives share inputs, so the spread of each one separately says
-    nothing about how often one beats the other.
+    Drawing the difference rather than two overlaid distributions is the point:
+    the alternatives share inputs and move together, so the spread of each one
+    separately says nothing about how often one beats the other.  Pass
+    ``between`` to pick the pair out of a simulation carrying more.
     """
+    a, b = _pair(simulation, between)
+    values = simulation.difference(a, b)
     ax = _axes(ax, figsize=(8, 5))
-    ax.hist(simulation.differences, bins=bins, color="#4C72B0", alpha=0.85)
+    ax.hist(values, bins=bins, color=colour, alpha=0.85)
     ax.axvline(0.0, color="black", linewidth=1.2)
-    median = simulation.percentiles((50,))[50.0]
+    median = simulation.difference_percentiles(a, b, (50,))[50.0]
     ax.axvline(median, color="#C44E52", linewidth=1.2, linestyle="--", label="median")
-    probability = simulation.probability_a_beats_b()
-    ax.set_xlabel(f"NPV advantage of {simulation.a} over {simulation.b}")
+    probability = simulation.probability(a, b)
+    ax.set_xlabel(f"NPV advantage of {a} over {b}")
     ax.set_ylabel("Trials")
-    ax.set_title(f"{simulation.a} wins in {probability:.1%} of {simulation.n:,} trials")
+    ax.set_title(f"{a} wins in {probability:.1%} of {simulation.n:,} trials")
+    ax.legend(fontsize=8)
+    return ax
+
+
+def npv_density_plot(
+    simulation: MonteCarlo,
+    ax: Any = None,
+    *,
+    names: Sequence[str] | None = None,
+    points: int = 256,
+    fill: bool = True,
+) -> Any:
+    """A smoothed density of each alternative's own present value.
+
+    This is the one chart that scales past two alternatives, and the one to be
+    careful with.  Every curve here is *marginal*: it answers how bad a single
+    alternative can get in absolute euros, which is a budgeting question the
+    difference actively hides.  It does not answer which one to buy.
+
+    Overlap between two curves is not a probability.  The alternatives share an
+    energy price and a discount rate, so heavily overlapping curves can still be
+    decided four to one once the trials are paired -- reading the overlap by eye
+    is the overlapping-error-bars fallacy, and the answer is
+    :meth:`~carbitrage.sensitivity.MonteCarlo.win_share` or
+    :func:`difference_plot`, not this chart.
+
+    An alternative that nothing sampled reaches has no density to estimate.  It
+    is drawn as the spike it is and labelled *(fixed)*, because dropping it
+    would read as an oversight when it is really a fact about the run.
+    """
+    try:
+        from scipy.stats import gaussian_kde
+    except ImportError as exc:  # pragma: no cover - scipy is a hard dependency
+        raise ImportError("the density plot needs scipy") from exc
+
+    chosen = tuple(names) if names is not None else simulation.names
+    unknown = [name for name in chosen if name not in simulation.npv]
+    if unknown:
+        raise CarbitrageError(
+            f"{unknown[0]!r} is not in this simulation, which covers {list(simulation.names)}"
+        )
+    ax = _axes(ax, figsize=(8, 5))
+    columns = {name: simulation.npv[name] for name in chosen}
+    low = min(float(np.min(values)) for values in columns.values())
+    high = max(float(np.max(values)) for values in columns.values())
+    pad = 0.05 * (high - low) if high > low else 1.0
+    grid = np.linspace(low - pad, high + pad, points)
+
+    densities = {
+        name: gaussian_kde(values)(grid) for name, values in columns.items() if np.ptp(values) > 0.0
+    }
+    peak = max((float(np.max(d)) for d in densities.values()), default=1.0)
+
+    for name, values in columns.items():
+        density = densities.get(name)
+        if density is None:
+            fixed = float(values[0])
+            ax.plot([fixed, fixed], [0.0, peak], linewidth=1.6, label=f"{name} (fixed)")
+            continue
+        (line,) = ax.plot(grid, density, linewidth=1.6, label=name)
+        if fill:
+            ax.fill_between(grid, density, color=line.get_color(), alpha=0.20)
+        ax.axvline(float(np.median(values)), color=line.get_color(), linewidth=0.9, linestyle=":")
+    ax.set_xlabel("Net present value")
+    ax.set_ylabel("Density")
+    ax.set_title("Marginal spread of each alternative -- overlap is not a probability")
+    ax.set_ylim(bottom=0.0)
     ax.legend(fontsize=8)
     return ax
 

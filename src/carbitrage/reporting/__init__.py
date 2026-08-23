@@ -12,17 +12,26 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .excel import write_excel
-    from .viz import monte_carlo_plot, one_way_plot, ranking_plot, tornado_plot
+    from .viz import (
+        difference_plot,
+        npv_density_plot,
+        one_way_plot,
+        ranking_plot,
+        tornado_plot,
+    )
 
 __all__ = [
-    "monte_carlo_plot",
+    "difference_plot",
+    "npv_density_plot",
     "one_way_plot",
     "ranking_plot",
     "tornado_plot",
     "write_excel",
 ]
 
-_PLOTS = frozenset({"monte_carlo_plot", "one_way_plot", "ranking_plot", "tornado_plot"})
+_PLOTS = frozenset(
+    {"difference_plot", "npv_density_plot", "one_way_plot", "ranking_plot", "tornado_plot"}
+)
 
 
 def __getattr__(name: str) -> object:

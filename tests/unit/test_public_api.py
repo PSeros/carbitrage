@@ -108,7 +108,8 @@ SCOPES: dict[str, list[str]] = {
         "fisher_real",
     ],
     "reporting": [
-        "monte_carlo_plot",
+        "difference_plot",
+        "npv_density_plot",
         "one_way_plot",
         "ranking_plot",
         "tornado_plot",

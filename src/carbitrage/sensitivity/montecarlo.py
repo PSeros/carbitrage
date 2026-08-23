@@ -26,120 +26,368 @@ __all__ = [
 
 @dataclass(frozen=True)
 class MonteCarlo:
-    """A simulated distribution of the *difference* between two alternatives.
+    """Every alternative's present value under one shared set of draws.
 
-    Reporting the difference rather than each alternative separately is the
-    whole point.  Two alternatives that share an energy price move together, and
-    the spread of each one on its own says nothing about how likely it is that
-    one beats the other.
+    Each trial evaluates *all* the alternatives against the same draw, so the
+    columns of :attr:`npv` are paired row by row.  That pairing is the content
+    of the simulation.  The alternatives share an energy price, a discount rate
+    and a horizon, so their present values move together, and the spread of any
+    one of them on its own says nothing about how often it beats another.
+
+    Read the marginals -- :meth:`npv_percentiles` -- for how bad a single
+    alternative can get in absolute euros, which is a budgeting question and a
+    real one.  Take every claim about *winning* from the paired columns:
+    :meth:`probability`, :meth:`win_share`, :meth:`regret`.  Two marginals that
+    overlap heavily can still be decided four to one once they are paired, so
+    reading overlap as if it were a probability is a mistake the paired columns
+    are there to prevent.
     """
 
-    a: str
-    b: str
-    differences: npt.NDArray[np.float64]
+    names: tuple[str, ...]
     npv: dict[str, npt.NDArray[np.float64]]
     params: tuple[str, ...]
     draws: npt.NDArray[np.float64]
 
     @property
     def n(self) -> int:
-        return int(self.differences.size)
+        return int(self.npv[self.names[0]].size)
 
-    def probability_a_beats_b(self) -> float:
-        """Share of trials in which ``a`` has the higher net present value."""
-        return float(np.mean(self.differences > 0.0))
+    # -------------------------------------------------------------- lookup
 
-    def mean_difference(self) -> float:
-        return float(np.mean(self.differences))
+    def _column(self, name: str) -> npt.NDArray[np.float64]:
+        try:
+            return self.npv[name]
+        except KeyError:
+            raise CarbitrageError(
+                f"{name!r} is not in this simulation, which covers {list(self.names)}"
+            ) from None
 
-    def percentiles(self, levels: Sequence[float] = (5, 25, 50, 75, 95)) -> dict[float, float]:
-        """Percentiles of the difference."""
-        values = np.percentile(self.differences, levels)
+    def _matrix(self) -> npt.NDArray[np.float64]:
+        """Trials down the rows, alternatives across the columns, in name order."""
+        return np.column_stack([self.npv[name] for name in self.names])
+
+    # ------------------------------------------------------------ marginal
+
+    def expected_npv(self) -> dict[str, float]:
+        """Mean present value per alternative.
+
+        This is the one reading that needs no pairing at all: expectation is
+        linear, so ``E[a] - E[b] == E[a - b]`` whatever the correlation.  Under
+        risk neutrality the highest of these *is* the decision.
+        """
+        return {name: float(np.mean(self.npv[name])) for name in self.names}
+
+    def npv_percentiles(
+        self, name: str, levels: Sequence[float] = (5, 25, 50, 75, 95)
+    ) -> dict[float, float]:
+        """Percentiles of one alternative's own present value.
+
+        A statement about that alternative's exposure, not about the comparison:
+        nothing here licenses a claim that one option beats another.
+        """
+        values = np.percentile(self._column(name), levels)
         return {float(level): float(value) for level, value in zip(levels, values, strict=True)}
 
+    # ------------------------------------------------------------ pairwise
+
+    def difference(self, a: str, b: str) -> npt.NDArray[np.float64]:
+        """Trial-by-trial advantage of ``a`` over ``b``.  Positive favours ``a``."""
+        return self._column(a) - self._column(b)
+
+    def probability(self, a: str, b: str) -> float:
+        """Share of trials in which ``a`` has the higher present value."""
+        return float(np.mean(self.difference(a, b) > 0.0))
+
+    def difference_percentiles(
+        self, a: str, b: str, levels: Sequence[float] = (5, 25, 50, 75, 95)
+    ) -> dict[float, float]:
+        """Percentiles of the advantage of ``a`` over ``b``."""
+        values = np.percentile(self.difference(a, b), levels)
+        return {float(level): float(value) for level, value in zip(levels, values, strict=True)}
+
+    def pairwise(self) -> dict[tuple[str, str], float]:
+        """``P(i beats j)`` for every ordered pair.
+
+        A diagnostic, not a ranking.  Each single trial orders the alternatives
+        totally, but the *majority* relation across trials need not be
+        transitive: i can beat j, j beat k and k beat i, which is ordinary
+        Condorcet.  Rank by :meth:`expected_npv` or :meth:`regret_percentile`.
+        """
+        return {(a, b): self.probability(a, b) for a in self.names for b in self.names if a != b}
+
+    # --------------------------------------------------------------- N-way
+
+    def win_share(self) -> dict[str, float]:
+        """Share of trials in which each alternative is the best of them all.
+
+        Unit-free, and so blind to magnitude: an alternative that wins sixty per
+        cent of trials by twenty euros and loses the rest by three thousand has
+        the best win share and is the worst choice.  Supporting evidence, never
+        the headline -- that belongs to :meth:`expected_npv`.
+        """
+        winners = np.argmax(self._matrix(), axis=1)
+        counts = np.bincount(winners, minlength=len(self.names))
+        return {name: float(counts[j]) / self.n for j, name in enumerate(self.names)}
+
+    def win_share_error(self) -> dict[str, float]:
+        """Standard error of each win share, as a share.
+
+        A win share is a binomial proportion over the trials, so it carries
+        sampling noise of its own: two alternatives closer together than a
+        couple of these are not told apart by this many trials.
+        """
+        return {
+            name: float(np.sqrt(share * (1.0 - share) / self.n))
+            for name, share in self.win_share().items()
+        }
+
+    def regret(self) -> dict[str, npt.NDArray[np.float64]]:
+        """Shortfall against the best alternative, trial by trial.
+
+        Never negative, and zero in the trials the alternative wins: what it
+        costs to have committed to this one once the draw is known.
+        """
+        matrix = self._matrix()
+        best = matrix.max(axis=1)
+        return {name: best - matrix[:, j] for j, name in enumerate(self.names)}
+
+    def expected_regret(self) -> dict[str, float]:
+        """Mean regret per alternative.
+
+        Ranks identically to :meth:`expected_npv` -- ``E[max] `` is the same
+        constant for every alternative -- so this adds no ordering, only a
+        scale a reader feels: what being wrong costs on average.
+        """
+        return {name: float(np.mean(values)) for name, values in self.regret().items()}
+
+    def regret_percentile(self, level: float = 95.0) -> dict[str, float]:
+        """Regret at one percentile, per alternative.
+
+        The worst regret over sampled trials is set by a single draw and grows
+        with ``n``, so an upper percentile stands in for the maximum: same idea,
+        an estimator that settles down.
+        """
+        return {name: float(np.percentile(values, level)) for name, values in self.regret().items()}
+
+    # ------------------------------------------------------- decision rules
+
+    def best_by_expected_value(self) -> str:
+        """The alternative with the highest mean present value."""
+        expected = self.expected_npv()
+        return max(expected, key=lambda name: expected[name])
+
+    def best_by_regret(self, level: float = 95.0) -> str:
+        """The alternative whose upper-percentile regret is least bad."""
+        worst = self.regret_percentile(level)
+        return min(worst, key=lambda name: worst[name])
+
+    def rules_agree(self, level: float = 95.0) -> bool:
+        """Whether expected value and percentile regret pick the same alternative."""
+        return self.best_by_expected_value() == self.best_by_regret(level)
+
+    # ---------------------------------------------------------- screening
+
+    def never_best(self) -> tuple[str, ...]:
+        """Alternatives that win no trial at all.
+
+        Not beaten on average -- beaten everywhere the sample looked, which is
+        the honest licence to drop them from the conversation.
+        """
+        share = self.win_share()
+        return tuple(name for name in self.names if share[name] == 0.0)
+
+    def undecided(self, tolerance: float = 0.05) -> tuple[tuple[str, str], ...]:
+        """Pairs the simulation cannot tell apart, as ``(a, b)`` with ``a`` before ``b``.
+
+        Where ``P(a beats b)`` sits within ``tolerance`` of a coin flip, cost has
+        stopped discriminating, and what the model refuses to monetise -- range,
+        charging time, a dead car on a Monday morning -- is what is left to
+        decide on.
+        """
+        out = []
+        for i, a in enumerate(self.names):
+            for b in self.names[i + 1 :]:
+                if abs(self.probability(a, b) - 0.5) <= tolerance:
+                    out.append((a, b))
+        return tuple(out)
+
+    # ------------------------------------------------------------ reporting
+
     def describe(self) -> str:
-        p = self.probability_a_beats_b()
-        q = self.percentiles((5, 50, 95))
-        return (
-            f"{self.a} beats {self.b} in {p:.1%} of {self.n:,} trials.  "
-            f"Median advantage {q[50.0]:,.0f}, 5th to 95th percentile "
-            f"{q[5.0]:,.0f} to {q[95.0]:,.0f}."
+        share = self.win_share()
+        error = self.win_share_error()
+        ev = self.best_by_expected_value()
+        expected = self.expected_npv()
+        lines = []
+        if len(self.names) == 2:
+            a, b = self.names
+            q = self.difference_percentiles(a, b, (5, 50, 95))
+            lines.append(
+                f"{a} beats {b} in {self.probability(a, b):.1%} of {self.n:,} trials.  "
+                f"Median advantage {q[50.0]:,.0f}, 5th to 95th percentile "
+                f"{q[5.0]:,.0f} to {q[95.0]:,.0f}."
+            )
+        else:
+            lines.append(f"{len(self.names)} alternatives over {self.n:,} trials.")
+        lines.append(
+            f"Highest expected value: {ev} ({expected[ev]:,.0f}), best in "
+            f"{share[ev]:.1%} of trials (+/- {error[ev]:.1%})."
         )
+        mr = self.best_by_regret()
+        if mr == ev:
+            lines.append("Regret at the 95th percentile picks the same alternative.")
+        else:
+            lines.append(
+                f"Regret at the 95th percentile picks {mr} instead.  The two rules "
+                "disagree, and that disagreement is the finding."
+            )
+        return "  ".join(lines)
+
+    def to_markdown(self, *, decimals: int = 0) -> str:
+        """Marginal spread and paired outcome per alternative, with both rules."""
+        expected = self.expected_npv()
+        share = self.win_share()
+        error = self.win_share_error()
+        worst = self.regret_percentile()
+        lines = [
+            "| Alternative | Expected | p5 | p95 | Wins | Regret p95 |",
+            "|---|---:|---:|---:|---:|---:|",
+        ]
+        for name in self.names:
+            q = self.npv_percentiles(name, (5, 95))
+            lines.append(
+                f"| {name} | {expected[name]:,.{decimals}f} | {q[5.0]:,.{decimals}f} | "
+                f"{q[95.0]:,.{decimals}f} | {share[name]:.1%} +/- {error[name]:.1%} | "
+                f"{worst[name]:,.{decimals}f} |"
+            )
+        lines.append("")
+        lines.append("The p5 and p95 columns are marginal: each alternative on its own.")
+        lines.append("Overlap between them is not a probability -- the Wins column is.")
+        lines.append("")
+        ev = self.best_by_expected_value()
+        mr = self.best_by_regret()
+        lines.append(f"Highest expected value: **{ev}** ({expected[ev]:,.{decimals}f}).")
+        lines.append(f"Lowest 95th-percentile regret: **{mr}** ({worst[mr]:,.{decimals}f}).")
+        if not self.rules_agree():
+            lines.append(
+                f"The two rules disagree: expected value favours {ev}, regret favours {mr}.  "
+                "That disagreement is the finding."
+            )
+        dropped = self.never_best()
+        if dropped:
+            lines.append("Never best in any trial, so nothing rests on them:")
+            lines.extend(f"- {name}" for name in dropped)
+        for a, b in self.undecided():
+            lines.append(
+                f"{a} and {b} are within a coin flip of each other, so cost does not "
+                "decide between them."
+            )
+        return "\n".join(lines)
 
 
 def monte_carlo(
     case: Case,
     distributions: Sequence[ParamName] | Mapping[ParamName, Distribution | None] | None = None,
     *,
-    between: tuple[str, str],
+    between: Sequence[str] | None = None,
     n: int = 2_000,
     correlation: npt.NDArray[np.float64] | Sequence[Sequence[float]] | None = None,
     seed: int | None = None,
 ) -> MonteCarlo:
     """Simulate the comparison with uncertain inputs.
 
+    Every trial evaluates every alternative asked for against the same draw, so
+    the result holds a paired sample rather than one distribution per option.
+
     Args:
         case: The base case.
         distributions: Omit it to sample every parameter in the case whose
-            mark declares a distribution — the model already states its own
+            mark declares a distribution -- the model already states its own
             uncertainty, and listing it again here only invites the two to
             disagree.  Otherwise parameter names, which sample what each one
             declares, or a mapping from name to a distribution.  A mapping value
             of ``None`` also defers to the declaration, which is how some
             parameters take theirs from the model while others are given one
             here.
-        between: The two alternatives whose difference is reported.
-        n: Number of trials.
+        between: Omit it to carry every alternative in the case, in the order it
+            was declared.  Name two or more to narrow the simulation to those,
+            which is worth doing only to keep an irrelevant option out of the
+            win shares -- it saves nothing, because a trial evaluates the whole
+            case either way.
+        n: Number of trials.  A win share is a binomial proportion over these,
+            so telling close alternatives apart takes more of them than settling
+            a single pairwise comparison does.
         correlation: Correlation matrix over the parameters, in the order they
-            appear in ``distributions`` — tree order when they were not listed,
+            appear in ``distributions`` -- tree order when they were not listed,
             which :func:`carbitrage.params.spreads` reports.  Energy prices and
-            residual values are not independent, and pretending otherwise understates the spread of
-            the difference.  Applied as a Gaussian copula, so each marginal
-            keeps its own shape.
+            residual values are not independent, and pretending otherwise
+            understates the spread of the difference.  Applied as a Gaussian
+            copula, so each marginal keeps its own shape.
         seed: Seed for reproducibility.
 
     Raises:
         CarbitrageError: on an empty specification, a case that declares nothing
-            to sample, a non-positive ``n``, a name left to a declaration that
-            cannot be sampled, or a correlation matrix that is not symmetric
-            positive definite.
+            to sample, a non-positive ``n``, fewer than two alternatives, a name
+            in ``between`` the case does not hold, a name left to a declaration
+            that cannot be sampled, or a correlation matrix that is not
+            symmetric positive definite.
     """
     if distributions is not None and not distributions:
         raise CarbitrageError("monte_carlo needs at least one parameter")
     if n <= 0:
         raise CarbitrageError(f"n must be positive, got {n!r}")
-    a, b = between
+    names = _alternatives(case, between)
     given = _requested(case, distributions)
-    names = tuple(given)
-    sampled = {name: _sampled(case, name, given[name]) for name in names}
-    for name in names:
+    parameters = tuple(given)
+    sampled = {name: _sampled(case, name, given[name]) for name in parameters}
+    for name in parameters:
         resolve(case, name)
 
     rng = np.random.default_rng(seed)
-    z = rng.standard_normal((n, len(names)))
+    z = rng.standard_normal((n, len(parameters)))
     if correlation is not None:
-        z = z @ _cholesky(np.asarray(correlation, dtype=np.float64), len(names)).T
+        z = z @ _cholesky(np.asarray(correlation, dtype=np.float64), len(parameters)).T
     u = _norm_cdf(z)
 
-    draws = np.column_stack([sampled[name].ppf(u[:, j]) for j, name in enumerate(names)])
+    draws = np.column_stack([sampled[name].ppf(u[:, j]) for j, name in enumerate(parameters)])
 
-    npv: dict[str, list[float]] = {name: [] for name in (a, b)}
-    differences = np.empty(n, dtype=np.float64)
+    columns = np.empty((n, len(names)), dtype=np.float64)
     for i in range(n):
-        trial = set_params(case, dict(zip(names, draws[i], strict=True)))
+        trial = set_params(case, dict(zip(parameters, draws[i], strict=True)))
         result = trial.run()
-        npv_a, npv_b = result[a].npv, result[b].npv
-        npv[a].append(npv_a)
-        npv[b].append(npv_b)
-        differences[i] = npv_a - npv_b
+        for j, name in enumerate(names):
+            columns[i, j] = result[name].npv
     return MonteCarlo(
-        a=a,
-        b=b,
-        differences=differences,
-        npv={name: np.asarray(values, dtype=np.float64) for name, values in npv.items()},
-        params=tuple(name_of(name) for name in names),
+        names=names,
+        npv={name: columns[:, j].copy() for j, name in enumerate(names)},
+        params=tuple(name_of(name) for name in parameters),
         draws=draws,
     )
+
+
+def _alternatives(case: Case, between: Sequence[str] | None) -> tuple[str, ...]:
+    """Which alternatives the simulation carries, in the order it will report them.
+
+    Naming none carries them all: the trial evaluates the whole case anyway, and
+    a simulation that quietly dropped every option but two would make the reader
+    ask for the comparison twice.
+    """
+    available = tuple(alt.name for alt in case.alternatives)
+    if between is None:
+        if len(available) < 2:
+            raise CarbitrageError(
+                f"a simulation compares alternatives, and this case holds {len(available)}"
+            )
+        return available
+    names = tuple(between)
+    if len(names) < 2:
+        raise CarbitrageError(f"between needs at least two alternatives, got {list(names)}")
+    for i, name in enumerate(names):
+        if name in names[:i]:
+            raise CarbitrageError(f"between names {name!r} twice")
+        if name not in available:
+            raise CarbitrageError(f"{name!r} is not an alternative in this case: {list(available)}")
+    return names
 
 
 def _requested(
