@@ -31,7 +31,7 @@ Six names sit directly on `carbitrage` — `Timeline`, `Vehicle`, `Alternative`,
 | `carbitrage.params` | `Uncertain`, `spread_of`, `get_param`, `set_param`, `resolve`, `find`, `describe_parameters` |
 | `carbitrage.sensitivity` | `one_way`, `two_way`, `switch_point`, `tornado`, `monte_carlo`, the distributions |
 | `carbitrage.scenario` | `Scenario`, `ScenarioSet`, `ScenarioAnalysis` |
-| `carbitrage.reporting` | `write_excel`, `tornado_plot`, `one_way_plot`, `difference_plot`, `npv_density_plot`, `ranking_plot` |
+| `carbitrage.reporting` | `write_excel`, `tornado_plot`, `one_way_plot`, `difference_plot`, `npv_density_plot`, `spread_plot`, `ranking_plot` |
 | `carbitrage.errors` | The error and warning hierarchy |
 
 ```python

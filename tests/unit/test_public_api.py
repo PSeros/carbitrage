@@ -112,6 +112,7 @@ SCOPES: dict[str, list[str]] = {
         "npv_density_plot",
         "one_way_plot",
         "ranking_plot",
+        "spread_plot",
         "tornado_plot",
         "write_excel",
     ],

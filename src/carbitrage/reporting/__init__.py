@@ -17,6 +17,7 @@ if TYPE_CHECKING:
         npv_density_plot,
         one_way_plot,
         ranking_plot,
+        spread_plot,
         tornado_plot,
     )
 
@@ -25,12 +26,20 @@ __all__ = [
     "npv_density_plot",
     "one_way_plot",
     "ranking_plot",
+    "spread_plot",
     "tornado_plot",
     "write_excel",
 ]
 
 _PLOTS = frozenset(
-    {"difference_plot", "npv_density_plot", "one_way_plot", "ranking_plot", "tornado_plot"}
+    {
+        "difference_plot",
+        "npv_density_plot",
+        "one_way_plot",
+        "ranking_plot",
+        "spread_plot",
+        "tornado_plot",
+    }
 )
 
 

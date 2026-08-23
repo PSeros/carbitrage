@@ -95,6 +95,15 @@ the same pair `ScenarioSet` reports, and their disagreement is the finding.
 `pairwise()` is a diagnostic, not a ranking: each trial orders the alternatives
 totally, but the majority relation across trials can be intransitive.
 
+`spread_plot` draws a declared distribution *before* anything is run — what
+`Uncertain(0.30, "home_electricity_price", Normal(0.30, 0.05))` actually says,
+with the base case marked on it, so you can see whether the case sits in the
+middle of what was declared or off to one side. The density is read off the
+distribution's own inverse CDF, so a `Uniform` keeps its square edges and a
+`Triangular` its kink. A declared `Range` is refused there for the same reason
+`monte_carlo` refuses it: it says where the value lies, not how likely each
+value in it is.
+
 `never_best()` names the alternatives beaten in every trial, which is the
 honest licence to drop them. `undecided()` names the pairs within a coin flip
 of each other, where cost has stopped discriminating and what the model refuses

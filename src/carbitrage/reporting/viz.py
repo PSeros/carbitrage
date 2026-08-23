@@ -28,6 +28,7 @@ __all__ = [
     "npv_density_plot",
     "one_way_plot",
     "ranking_plot",
+    "spread_plot",
     "tornado_plot",
 ]
 
@@ -225,4 +226,115 @@ def ranking_plot(result: ComparisonResult, ax: Any = None) -> Any:
     ax.barh([e.name for e in order], values, color=colours, height=0.6)
     ax.set_xlabel("Present value of outflows")
     ax.set_title(result.verdict(), fontsize=9, loc="left", wrap=True)
+    return ax
+
+
+def _shape(spread: Any) -> str:
+    """A distribution written short enough for a chart title.
+
+    ``repr`` on a frozen dataclass prints every float at full precision, which
+    a ``LogNormal`` parameterised from a mean and a coefficient of variation
+    overflows a title with.
+    """
+    import dataclasses
+
+    if not dataclasses.is_dataclass(spread):
+        return repr(spread)
+    parts = []
+    for field in dataclasses.fields(spread):
+        value = getattr(spread, field.name)
+        shown = f"{value:,.4g}" if isinstance(value, float | int) else repr(value)
+        parts.append(f"{field.name}={shown}")
+    return f"{type(spread).__name__}({', '.join(parts)})"
+
+
+def spread_plot(
+    declared: Any,
+    ax: Any = None,
+    *,
+    label: str | None = None,
+    points: int = 512,
+    tail: float = 1e-3,
+    colour: str = "#4C72B0",
+) -> Any:
+    """The density of a declared distribution, before anything is run.
+
+    This is the *input* assumption drawn as it was written -- what
+    ``Uncertain(0.30, "home_electricity_price", Normal(0.30, 0.05))`` actually
+    says -- rather than an outcome of a simulation.  Pass the mark to get its
+    base value drawn alongside, which is where the reader sees whether the case
+    sits at the middle of what was declared or off to one side of it, or pass a
+    bare distribution to see the shape on its own.
+
+    The density comes from the inverse CDF the distribution already provides,
+    as ``1 / Q'(u)``, so it is exact for every shape and needs nothing of a
+    distribution that :class:`~carbitrage.sensitivity.Distribution` does not
+    already require.  Estimating it from samples instead would round off the
+    corners of a :class:`~carbitrage.sensitivity.Uniform` and the kink of a
+    :class:`~carbitrage.sensitivity.Triangular`, which are the two things worth
+    seeing in a declaration.
+
+    Args:
+        declared: An :class:`~carbitrage.params.Uncertain` mark, or a
+            :class:`~carbitrage.sensitivity.Distribution`.
+        ax: An existing axis, or ``None`` to create one.
+        label: Overrides the name in the title.
+        points: Quantile levels the density is evaluated at.
+        tail: Quantile the curve starts and stops at, so an unbounded
+            distribution has somewhere to end.  It trims a bounded one by the
+            same sliver, which is invisible at the default of a thousandth.
+        colour: The fill colour.
+
+    Raises:
+        CarbitrageError: on a mark declaring nothing, on a declared
+            :class:`~carbitrage.sensitivity.Range`, which says where the value
+            lies but not how likely each value in it is, and on a ``tail`` that
+            is not a probability.
+    """
+    from ..params import Uncertain
+    from ..sensitivity import Distribution
+
+    if not 0.0 < tail < 0.5:
+        raise CarbitrageError(f"tail must be a probability below one half, got {tail!r}")
+
+    base: float | None = None
+    if isinstance(declared, Uncertain):
+        base = float(declared)
+        label = label if label is not None else declared.label
+        spread = declared.spread
+        if spread is None:
+            raise CarbitrageError(
+                f"{declared.label} declares no spread, so there is no distribution to draw"
+            )
+    else:
+        spread = declared
+    if not isinstance(spread, Distribution):
+        raise CarbitrageError(
+            f"{spread!r} says where the value lies but not how likely each value in it is, "
+            "so it has no density to draw; declare a distribution"
+        )
+
+    u = np.linspace(tail, 1.0 - tail, points)
+    x = spread.ppf(u)
+    density = 1.0 / np.gradient(x, u)
+
+    ax = _axes(ax, figsize=(8, 4.5))
+    ax.plot(x, density, color=colour, linewidth=1.6)
+    ax.fill_between(x, density, color=colour, alpha=0.25)
+
+    lower, upper = spread.ppf(np.asarray([0.05, 0.95]))
+    inside = (x >= lower) & (x <= upper)
+    ax.fill_between(x[inside], density[inside], color=colour, alpha=0.25, label="5th to 95th")
+
+    mean = spread.mean()
+    ax.axvline(mean, color="#C44E52", linewidth=1.2, linestyle="--", label=f"mean {mean:,.4g}")
+    if base is not None:
+        ax.axvline(base, color="black", linewidth=1.2, label=f"base case {base:,.4g}")
+
+    ax.set_xlabel(label if label is not None else "Value")
+    ax.set_ylabel("Density")
+    shape = _shape(spread)
+    ax.set_title(f"{label}: {shape}" if label is not None else shape)
+    ax.set_ylim(bottom=0.0)
+    ax.legend(fontsize=8)
     return ax
