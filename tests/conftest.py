@@ -26,3 +26,8 @@ def agg_matplotlib() -> object:
     mpl = pytest.importorskip("matplotlib")
     mpl.use("Agg")
     return mpl
+
+
+@pytest.fixture
+def pandas() -> object:
+    return pytest.importorskip("pandas")

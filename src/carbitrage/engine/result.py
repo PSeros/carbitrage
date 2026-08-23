@@ -359,6 +359,38 @@ class ComparisonResult:
             ) from exc
         return pd.DataFrame(list(self.to_rows(baseline)))
 
+    def breakdown_frame(self, *, decimals: int | None = None) -> Any:
+        """Every alternative's components side by side, as a pandas DataFrame.
+
+        Rows are components, columns are alternatives in the order they were
+        supplied, and a component absent from an alternative reads as ``0``
+        rather than as missing data — it is a real zero, not an unknown.  Each
+        column sums to that alternative's NPV.
+
+        Args:
+            decimals: Round to this many places, ``0`` giving whole currency
+                units as integers.  ``None``, the default, keeps full precision;
+                rounding is a presentation choice and belongs to the caller.
+
+        Requires the ``frames`` extra.
+        """
+        try:
+            import pandas as pd
+        except ImportError as exc:  # pragma: no cover - depends on the environment
+            raise ImportError(
+                "breakdown_frame() needs pandas; install carbitrage with the 'frames' extra"
+            ) from exc
+        columns = {e.name: e.breakdown() for e in self.evaluations}
+        present = [c for c in Component if any(c in column for column in columns.values())]
+        frame = pd.DataFrame(
+            {name: [column.get(c, 0.0) for c in present] for name, column in columns.items()},
+            index=pd.Index([c.name for c in present], name="component"),
+        )
+        if decimals is None:
+            return frame
+        frame = frame.round(decimals)
+        return frame.astype(int) if decimals <= 0 else frame
+
     # ----------------------------------------------------------- sensitivity
 
     def _require_case(self, what: str) -> Case:

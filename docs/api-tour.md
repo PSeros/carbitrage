@@ -7,6 +7,7 @@ result.is_material()                # is the lead bigger than 3 % of PV, or nois
 result.breakdown("Buy the EV now")  # labelled components that sum to the total
 result.incremental(a, b)            # differential stream, its PV, IRR and payback
 result.to_markdown(); result.to_frame()
+result.breakdown_frame(decimals=0)  # components x alternatives, side by side
 ```
 
 **Sensitivity** — every one of these re-runs the full monthly cash-flow engine:
