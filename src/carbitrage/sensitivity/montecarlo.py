@@ -10,7 +10,7 @@ import numpy as np
 import numpy.typing as npt
 
 from ..errors import CarbitrageError
-from ..params import ParamName, name_of, resolve, set_params, spread_of
+from ..params import ParamName, name_of, resolve, set_params, spread_of, spreads
 from .distributions import Distribution, _norm_cdf
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -69,7 +69,7 @@ class MonteCarlo:
 
 def monte_carlo(
     case: Case,
-    distributions: Sequence[ParamName] | Mapping[ParamName, Distribution | None],
+    distributions: Sequence[ParamName] | Mapping[ParamName, Distribution | None] | None = None,
     *,
     between: tuple[str, str],
     n: int = 2_000,
@@ -80,33 +80,36 @@ def monte_carlo(
 
     Args:
         case: The base case.
-        distributions: Either parameter names, which then sample the
-            distribution each one declares for itself, or a mapping from name to
-            a distribution.  A mapping value of ``None`` also defers to the
-            declaration, which is how some parameters take theirs from the model
-            while others are given one here.
+        distributions: Omit it to sample every parameter in the case whose
+            mark declares a distribution — the model already states its own
+            uncertainty, and listing it again here only invites the two to
+            disagree.  Otherwise parameter names, which sample what each one
+            declares, or a mapping from name to a distribution.  A mapping value
+            of ``None`` also defers to the declaration, which is how some
+            parameters take theirs from the model while others are given one
+            here.
         between: The two alternatives whose difference is reported.
         n: Number of trials.
         correlation: Correlation matrix over the parameters, in the order they
-            appear in ``distributions``.  Energy prices and residual values are
-            not independent, and pretending otherwise understates the spread of
+            appear in ``distributions`` — tree order when they were not listed,
+            which :func:`carbitrage.params.spreads` reports.  Energy prices and
+            residual values are not independent, and pretending otherwise understates the spread of
             the difference.  Applied as a Gaussian copula, so each marginal
             keeps its own shape.
         seed: Seed for reproducibility.
 
     Raises:
-        CarbitrageError: on an empty specification, a non-positive ``n``, a name
-            left to a declaration that cannot be sampled, or a correlation
-            matrix that is not symmetric positive definite.
+        CarbitrageError: on an empty specification, a case that declares nothing
+            to sample, a non-positive ``n``, a name left to a declaration that
+            cannot be sampled, or a correlation matrix that is not symmetric
+            positive definite.
     """
-    if not distributions:
+    if distributions is not None and not distributions:
         raise CarbitrageError("monte_carlo needs at least one parameter")
     if n <= 0:
         raise CarbitrageError(f"n must be positive, got {n!r}")
     a, b = between
-    given: dict[ParamName, Distribution | None] = (
-        dict(distributions) if isinstance(distributions, Mapping) else dict.fromkeys(distributions)
-    )
+    given = _requested(case, distributions)
     names = tuple(given)
     sampled = {name: _sampled(case, name, given[name]) for name in names}
     for name in names:
@@ -137,6 +140,34 @@ def monte_carlo(
         params=tuple(name_of(name) for name in names),
         draws=draws,
     )
+
+
+def _requested(
+    case: Case,
+    distributions: Sequence[ParamName] | Mapping[ParamName, Distribution | None] | None,
+) -> dict[ParamName, Distribution | None]:
+    """What to sample, as a name to distribution-or-defer mapping.
+
+    An omitted specification is read off the case itself: every mark declaring a
+    distribution, in tree order.  Marks declaring a range are passed over rather
+    than refused, because the caller named nothing and so asked nothing of them.
+    """
+    if distributions is None:
+        declared: dict[ParamName, Distribution | None] = {
+            label: found
+            for label, found in spreads(case).items()
+            if isinstance(found, Distribution)
+        }
+        if not declared:
+            raise CarbitrageError(
+                "no parameter in this case declares a distribution, so there is nothing to "
+                "sample; declare one with Uncertain(value, label, spread) or name the "
+                "distributions here"
+            )
+        return declared
+    if isinstance(distributions, Mapping):
+        return dict(distributions)
+    return dict.fromkeys(distributions)
 
 
 def _sampled(case: Case, name: ParamName, given: Distribution | None) -> Distribution:

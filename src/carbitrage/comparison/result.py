@@ -362,7 +362,7 @@ class ComparisonResult:
 
     def tornado(
         self,
-        params: Sequence[ParamName] | Mapping[ParamName, Range],
+        params: Sequence[ParamName] | Mapping[ParamName, Range] | None = None,
         *,
         metric: Metric | None = None,
         default_range: Range | None = None,
@@ -379,7 +379,7 @@ class ComparisonResult:
 
     def monte_carlo(
         self,
-        distributions: Sequence[ParamName] | Mapping[ParamName, Distribution | None],
+        distributions: Sequence[ParamName] | Mapping[ParamName, Distribution | None] | None = None,
         *,
         between: tuple[str, str],
         n: int = 2_000,

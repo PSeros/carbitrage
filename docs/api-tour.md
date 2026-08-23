@@ -25,6 +25,7 @@ repair = Uncertain(1_700, "repair_bill", Triangular(800, 1_700, 4_000))  # + wha
 
 params.uncertainties(case)   # every mark in the case, and where it sits
 params.spread_of(case, "repair_bill")   # what was declared about it
+params.spreads(case, kind=Distribution) # every declaration, ready for a study
 params.find(case, "life")    # locate what nobody marked
 params.ALIASES               # the short names every case shares
 ```
@@ -48,6 +49,12 @@ rather than widened into a uniform, because a range says where a value lies and
 a simulation needs to know how likely each value in it is. An explicit range or
 distribution passed at the call site always wins.
 
+Omit the parameters entirely and the study reads the case: `tornado()` ranks
+everything that declares a spread, `monte_carlo(between=…)` samples everything
+that declares a distribution, passing over the ranges it cannot sample. Both go
+in tree order, which is the order `params.spreads(case)` reports and the order
+`correlation` is indexed by.
+
 **Sensitivity** — every one of these re-runs the full monthly cash-flow engine:
 
 ```python
@@ -58,9 +65,11 @@ result.two_way("annual_km", rows, "lpg_price", cols)
 result.tornado({"annual_km": Range(5_000, 30_000),
                 "residual_rate": Range(0.7, 1.4, relative=True)})
 result.tornado([repair, annual_km])            # each across the range it declared
+result.tornado()                               # everything the case declares
 result.monte_carlo({"lpg_price": Triangular(0.80, 0.99, 1.40)},
                    between=(a, b), correlation=[[1, .8], [.8, 1]], n=5_000)
 result.monte_carlo([repair], between=(a, b))   # sampling what the mark declared
+result.monte_carlo(between=(a, b))             # everything the case declares
 ```
 
 `monte_carlo` returns the distribution of the **difference**, not of each

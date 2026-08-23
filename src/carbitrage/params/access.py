@@ -23,6 +23,7 @@ __all__ = [
     "set_param",
     "set_params",
     "spread_of",
+    "spreads",
     "uncertainties",
 ]
 
@@ -166,6 +167,30 @@ def spread_of(case: Case, name: ParamName) -> Spread | None:
     if first is None or any(other != first for other in declared[1:]):
         return None
     return first
+
+
+def spreads(case: Case, *, kind: type | tuple[type, ...] | None = None) -> dict[str, Spread]:
+    """Every declared spread in the case, keyed by label, in tree order.
+
+    How a study is handed what the model already says about itself, instead of
+    the caller restating it::
+
+        spreads(case)                    # everything that declares anything
+        spreads(case, kind=Distribution) # only what a simulation can sample
+        spreads(case, kind=Normal)       # only the normally distributed inputs
+
+    ``kind`` is matched with ``isinstance``, so a base class selects a family
+    and a concrete class selects one shape.  A label whose fields declare
+    different spreads is dropped rather than guessed at, on the same reasoning
+    as :func:`spread_of`.
+    """
+    found: dict[str, Spread] = {}
+    for label in uncertainties(case):
+        declared = spread_of(case, label)
+        if declared is None or (kind is not None and not isinstance(declared, kind)):
+            continue
+        found[label] = declared
+    return found
 
 
 def uncertainties(case: Case) -> dict[str, tuple[str, ...]]:

@@ -95,6 +95,7 @@ SCOPES: dict[str, list[str]] = {
         "set_param",
         "set_params",
         "spread_of",
+        "spreads",
         "uncertainties",
     ],
     "rates": [

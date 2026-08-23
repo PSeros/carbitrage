@@ -27,6 +27,7 @@ from .access import (
     set_param,
     set_params,
     spread_of,
+    spreads,
     uncertainties,
 )
 from .aliases import ALIASES, FieldOf
@@ -47,5 +48,6 @@ __all__ = [
     "set_param",
     "set_params",
     "spread_of",
+    "spreads",
     "uncertainties",
 ]

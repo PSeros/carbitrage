@@ -10,7 +10,7 @@ from carbitrage.acquisition import Purchase
 from carbitrage.context import Usage
 from carbitrage.energy import Petrol
 from carbitrage.errors import CarbitrageError
-from carbitrage.params import Uncertain
+from carbitrage.params import Uncertain, spreads
 from carbitrage.residual import GeometricDecline
 from carbitrage.sensitivity import LogNormal, Normal, Range, Triangular, Uniform
 from carbitrage.sensitivity.spec import _band
@@ -181,6 +181,18 @@ def test_an_explicit_range_overrides_the_declaration() -> None:
     assert (bar.low_value, bar.high_value) == (10_000.0, 30_000.0)
 
 
+def test_an_unlisted_tornado_ranks_everything_the_case_declares() -> None:
+    """The case already says what is uncertain; listing it again invites a mismatch."""
+    bars = case_with(BANDED).run().tornado().bars
+    assert [bar.param for bar in bars] == ["banded_price"]
+    assert (bars[0].low_value, bars[0].high_value) == (19_000.0, 21_500.0)
+
+
+def test_an_unlisted_tornado_needs_the_case_to_declare_something(marked: Case) -> None:
+    with pytest.raises(CarbitrageError, match="no parameter in this case declares a spread"):
+        marked.run().tornado()
+
+
 def test_an_undeclared_parameter_still_falls_back_to_the_default_range(marked: Case) -> None:
     bar = marked.run().tornado([PRICE], default_range=Range(0.5, 1.5, relative=True)).bars[0]
     assert (bar.low_value, bar.high_value) == (10_000.0, 30_000.0)
@@ -255,6 +267,37 @@ def test_a_mapping_can_defer_one_parameter_and_state_another() -> None:
     )
     assert simulation.params == ("banded_price", "annual_km")
     assert simulation.draws[:, 1].min() >= 8_000.0
+
+
+def test_an_unlisted_simulation_samples_everything_the_case_declares() -> None:
+    declared = Uncertain(20_000.0, "banded_price", Triangular(18_000.0, 20_000.0, 23_000.0))
+    simulation = case_with(declared).run().monte_carlo(between=("a", "b"), n=64, seed=0)
+    assert simulation.params == ("banded_price",)
+    assert simulation.draws.min() >= 18_000.0
+
+
+def test_an_unlisted_simulation_passes_over_what_it_cannot_sample() -> None:
+    """A range was not offered to the simulation, so it is skipped, not refused."""
+    both = case_with(BANDED)  # BANDED declares a Range
+    both = both.__class__(
+        alternatives=both.alternatives,
+        timeline=both.timeline,
+        usage=Usage(annual_km=Uncertain(12_000.0, "km", Uniform(8_000.0, 16_000.0))),
+    )
+    simulation = both.run().monte_carlo(between=("a", "b"), n=32, seed=0)
+    assert simulation.params == ("km",)
+
+
+def test_an_unlisted_simulation_needs_the_case_to_declare_a_distribution(marked: Case) -> None:
+    with pytest.raises(CarbitrageError, match="declares a distribution"):
+        marked.run().monte_carlo(between=("a", "b"), n=8)
+
+
+def test_declared_spreads_are_collected_by_family() -> None:
+    case = case_with(BANDED)
+    assert spreads(case) == {"banded_price": Range(19_000.0, 21_500.0)}
+    assert spreads(case, kind=Normal) == {}
+    assert spreads(case, kind=Range) == {"banded_price": Range(19_000.0, 21_500.0)}
 
 
 def test_a_parameter_declaring_nothing_cannot_be_left_to_its_declaration(marked: Case) -> None:

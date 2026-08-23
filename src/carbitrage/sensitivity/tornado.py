@@ -8,7 +8,16 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ..errors import CarbitrageError
-from ..params import ParamName, get_param, name_of, resolve, scale_param, set_param, spread_of
+from ..params import (
+    ParamName,
+    get_param,
+    name_of,
+    resolve,
+    scale_param,
+    set_param,
+    spread_of,
+    spreads,
+)
 from .distributions import Distribution
 from .metrics import Metric, best_margin
 from .spec import Range, _band, _pretty
@@ -87,7 +96,7 @@ class Tornado:
 
 def tornado(
     case: Case,
-    params: Sequence[ParamName] | Mapping[ParamName, Range],
+    params: Sequence[ParamName] | Mapping[ParamName, Range] | None = None,
     *,
     metric: Metric | None = None,
     default_range: Range | None = None,
@@ -96,9 +105,11 @@ def tornado(
 
     Args:
         case: The base case.
-        params: Either parameter names, which then take the range each one
-            declares for itself, or a mapping from name to an explicit
-            :class:`Range` that overrides any declaration.
+        params: Omit it to rank every parameter in the case that declares a
+            spread, each across the range it declares.  Otherwise parameter
+            names, which take the range each one declares for itself, or a
+            mapping from name to an explicit :class:`Range` that overrides any
+            declaration.
         metric: What to measure.  Defaults to the winner's margin over the
             runner-up, which is the decision-relevant quantity: a driver that
             moves every alternative equally changes no decision.
@@ -113,6 +124,13 @@ def tornado(
     """
     read = best_margin() if metric is None else metric
     span_default = Range(0.75, 1.25, relative=True) if default_range is None else default_range
+    if params is None:
+        params = tuple(spreads(case))
+        if not params:
+            raise CarbitrageError(
+                "no parameter in this case declares a spread, so there is nothing to rank; "
+                "declare one with Uncertain(value, label, spread) or name the parameters here"
+            )
     ranges: dict[ParamName, Range] = (
         dict(params)
         if isinstance(params, Mapping)
