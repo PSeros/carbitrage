@@ -11,17 +11,12 @@ import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from carbitrage import (
-    Alternative,
-    GeometricDecline,
-    ReplacementChain,
-    Timeline,
-    Usage,
-    Vehicle,
-    compare,
-)
-from carbitrage.core.cashflow import CashFlowSeries, Component, Frequency, OneOff, Recurring
-from carbitrage.domain.energy import Electricity, Petrol
+from carbitrage import Alternative, Timeline, Vehicle, compare
+from carbitrage.cashflow import CashFlowSeries, Component, Frequency, OneOff, Recurring
+from carbitrage.comparison import ReplacementChain
+from carbitrage.context import Usage
+from carbitrage.energy import LPG, BivalentSource, Electricity, Petrol
+from carbitrage.residual import GeometricDecline
 
 SLOW = settings(max_examples=25, deadline=None)
 
@@ -260,8 +255,6 @@ def test_value_after_is_consistent_with_the_underlying_curve(
     petrol=st.floats(min_value=0.5, max_value=4.0),
 )
 def test_a_bivalent_cost_lies_between_its_two_legs(share: float, gas: float, petrol: float) -> None:
-    from carbitrage.domain.energy import LPG, BivalentSource
-
     tl = Timeline(horizon_years=2, periods_per_year=12, rate=0.03)
     primary = LPG(consumption=8.0, price=gas)
     secondary = Petrol(consumption=8.0, price=petrol)

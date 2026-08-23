@@ -20,11 +20,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ..core.cashflow import Component
+from ..cashflow import Component
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..engine.result import ComparisonResult
-    from ..study.scenario import ScenarioAnalysis
+    from ..comparison import ComparisonResult
+    from ..scenario import ScenarioAnalysis
 
 __all__ = ["write_excel"]
 

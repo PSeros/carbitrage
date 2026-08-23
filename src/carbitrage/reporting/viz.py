@@ -16,8 +16,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..engine.result import ComparisonResult
-    from ..study.sensitivity import MonteCarlo, OneWayGrid, Tornado
+    from ..comparison import ComparisonResult
+    from ..sensitivity import MonteCarlo, OneWayGrid, Tornado
 
 __all__ = ["monte_carlo_plot", "one_way_plot", "ranking_plot", "tornado_plot"]
 

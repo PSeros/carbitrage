@@ -49,49 +49,45 @@ finding only).
 ```python
 from datetime import date
 
-from carbitrage import (
-    LPG, BAFA2026, Alternative, BivalentSource, Electricity, GeometricDecline,
-    Household, Incumbent, Lease, Petrol, Purchase, ReplacementChain,
-    TabulatedResiduals, ThgQuote, Timeline, Usage, Vehicle, VehicleTaxExemption,
-    compare,
-)
+import carbitrage as cb
+from carbitrage import acquisition, comparison, context, energy, incentives, residual
 
-timeline  = Timeline(horizon_years=6, periods_per_year=12, rate=0.03,
-                     energy_escalation=0.02, vehicle_price_escalation=0.015)
-household = Household(taxable_income=55_000, children=0)
-usage     = Usage(annual_km=12_000)
+timeline  = cb.Timeline(horizon_years=6, periods_per_year=12, rate=0.03,
+                        energy_escalation=0.02, vehicle_price_escalation=0.015)
+household = context.Household(taxable_income=55_000, children=0)
+usage     = context.Usage(annual_km=12_000)
 
-ev = Vehicle(
+ev = cb.Vehicle(
     "Hyundai Inster", price=23_900,
-    energy=Electricity(15.1, real_world_factor=1.18,
-                       home_price=0.30, public_price=0.55, home_share=0.8),
-    residual=GeometricDecline(0.15),
+    energy=energy.Electricity(15.1, real_world_factor=1.18,
+                              home_price=0.30, public_price=0.55, home_share=0.8),
+    residual=residual.GeometricDecline(0.15),
     insurance=750, maintenance=300, setup_cost=1_500,   # the wallbox
     first_registration=date(2026, 1, 1),
 )
-incentives = (BAFA2026(), ThgQuote(300), VehicleTaxExemption())
+grants = (incentives.BAFA2026(), incentives.ThgQuote(300), incentives.VehicleTaxExemption())
 
-buy   = Alternative(ev, Purchase(), incentives, label="Buy the EV now")
-lease = Alternative(ev, Lease(239, term_months=36, included_km=10_000,
-                              excess_km_rate=0.12, renewal_escalation=0.05),
-                    incentives, label="Lease the EV")
+buy   = cb.Alternative(ev, acquisition.Purchase(), grants, label="Buy the EV now")
+lease = cb.Alternative(ev, acquisition.Lease(239, term_months=36, included_km=10_000,
+                                             excess_km_rate=0.12, renewal_escalation=0.05),
+                       grants, label="Lease the EV")
 
-old = Vehicle(
+old = cb.Vehicle(
     "LPG incumbent", price=1_500,          # its current market value
-    energy=BivalentSource(LPG(7.5, price=0.99, volumetric_penalty=1.2),
-                          Petrol(7.5, price=2.10), primary_share=0.90),
-    residual=TabulatedResiduals.from_values(1_500, {2: 800}),
+    energy=energy.BivalentSource(energy.LPG(7.5, price=0.99, volumetric_penalty=1.2),
+                                 energy.Petrol(7.5, price=2.10), primary_share=0.90),
+    residual=residual.TabulatedResiduals.from_values(1_500, {2: 800}),
     insurance=550, maintenance=900, annual_tax=160,
 )
-defer = ReplacementChain(
-    Alternative(old, Purchase(upfront_extra=2_500, already_owned=True),
-                life_years=2, disposes_incumbent=False, label="Keep the incumbent"),
-    Alternative(ev, Purchase(), incentives, label="Buy the EV in 2 years"),
+defer = comparison.ReplacementChain(
+    cb.Alternative(old, acquisition.Purchase(upfront_extra=2_500, already_owned=True),
+                   life_years=2, disposes_incumbent=False, label="Keep the incumbent"),
+    cb.Alternative(ev, acquisition.Purchase(), grants, label="Buy the EV in 2 years"),
     label="Repair now, replace in 2 years",
 )
 
-result = compare([buy, lease, defer], timeline, usage=usage, household=household,
-                 incumbent=Incumbent(old, market_value=1_500))
+result = cb.compare([buy, lease, defer], timeline, usage=usage, household=household,
+                    incumbent=context.Incumbent(old, market_value=1_500))
 
 print(result.to_markdown())
 print(result.switch_point("annual_km", ("Buy the EV now", "Lease the EV")).describe())
@@ -122,9 +118,10 @@ Lease the EV wins, above it Buy the EV now wins.
 | [Validation](docs/validation.md) | What the test suite checks |
 | [Working on the code](docs/development.md) | Setup, the layering rule, what the tests hold in place |
 
-`carbitrage` is layered — `core` → `domain` → `engine` → `study` → `reporting` —
-but everything public is re-exported at the top level, so `from carbitrage import X`
-is the supported import in all cases. See [the layout table](docs/index.md#package-layout).
+The public API is organised into scopes — `energy`, `acquisition`, `incentives`,
+`tax`, `residual`, `sensitivity` and nine more — with six spine names
+(`Timeline`, `Vehicle`, `Alternative`, `Case`, `compare`, `ComparisonResult`)
+directly on `carbitrage`. See [the scope table](docs/index.md#the-public-scopes).
 
 ## Licence
 

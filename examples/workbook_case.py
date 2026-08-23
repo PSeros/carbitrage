@@ -16,28 +16,15 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-from carbitrage import (
-    Alternative,
-    Case,
-    Household,
-    Incumbent,
-    Lease,
-    Purchase,
-    Range,
-    ReplacementChain,
-    TabulatedResiduals,
-    Timeline,
-    Triangular,
-    Usage,
-    Vehicle,
-    advantage,
-    monte_carlo,
-    optimal_replacement_age,
-)
-from carbitrage.domain.energy import LPG, BivalentSource, Electricity, Petrol
-from carbitrage.domain.incentive import BAFA2026, ThgQuote, VehicleTaxExemption
-from carbitrage.domain.residual import GeometricDecline
-from carbitrage.study.scenario import Scenario, ScenarioSet
+from carbitrage import Alternative, Case, Timeline, Vehicle
+from carbitrage.acquisition import Lease, Purchase
+from carbitrage.comparison import ReplacementChain, optimal_replacement_age
+from carbitrage.context import Household, Incumbent, Usage
+from carbitrage.energy import LPG, BivalentSource, Electricity, Petrol
+from carbitrage.incentives import BAFA2026, ThgQuote, VehicleTaxExemption
+from carbitrage.residual import GeometricDecline, TabulatedResiduals
+from carbitrage.scenario import Scenario, ScenarioSet
+from carbitrage.sensitivity import Range, Triangular, advantage, monte_carlo
 
 BUY = "Buy the EV now"
 LEASE = "Lease the EV"

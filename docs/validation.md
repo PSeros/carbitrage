@@ -26,11 +26,14 @@ error and warning the library is supposed to raise: unequal lives without a
 chain, a nominal rate against unescalated flows, a real basis with no stated
 inflation, double-counted subsidies, and the guards around IRR.
 
-**The public API** is frozen in `tests/unit/test_public_api.py`. The 86 names
-exported from `carbitrage` cannot change without that test failing.
+**The public API** is frozen in `tests/unit/test_public_api.py`: the six spine
+names, the fifteen scopes, and the exact `__all__` of every one of them. The
+same file also fails if a public name is added anywhere inside the package and
+never given a scope to live in, so the surface cannot quietly grow a hole.
 
 **The layering** is enforced in `tests/unit/test_layering.py`: no module may
-import from a package above its own.
+import from a scope above its own, every scope must have a declared layer, and
+a scope's `__init__.py` may hold nothing but re-exports.
 
 ## Provenance of the numbers
 

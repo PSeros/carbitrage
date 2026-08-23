@@ -9,19 +9,11 @@ from __future__ import annotations
 
 import pytest
 
-from carbitrage import (
-    Alternative,
-    RateBasis,
-    Timeline,
-    Vehicle,
-    compare,
-    fisher_real,
-)
-from carbitrage.domain.energy import Electricity
-from carbitrage.domain.residual import GeometricDecline
-from carbitrage.errors import (
-    InconsistentRateBasisError,
-)
+from carbitrage import Alternative, Timeline, Vehicle, compare
+from carbitrage.energy import Electricity
+from carbitrage.errors import InconsistentRateBasisError
+from carbitrage.rates import RateBasis, fisher_real
+from carbitrage.residual import GeometricDecline
 
 # 1 --------------------------------------------- unequal lives must not be compared
 

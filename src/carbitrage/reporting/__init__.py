@@ -1,18 +1,41 @@
-"""Optional output adapters.
+"""Optional output adapters: an xlsx workbook and matplotlib figures.
 
-The core takes its inputs in Python and needs nothing from this package.
-`write_excel` is resolved lazily so that importing it does not require the
-``excel`` extra to be installed.
+The library takes its inputs in Python and needs nothing from this package.
+Every name here is resolved lazily, so reaching for one of the plots does not
+require the ``excel`` extra and vice versa -- the import only fails when you
+actually ask for something whose extra is missing.
 """
 
 from __future__ import annotations
 
-__all__ = ["write_excel"]
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .excel import write_excel
+    from .viz import monte_carlo_plot, one_way_plot, ranking_plot, tornado_plot
+
+__all__ = [
+    "monte_carlo_plot",
+    "one_way_plot",
+    "ranking_plot",
+    "tornado_plot",
+    "write_excel",
+]
+
+_PLOTS = frozenset({"monte_carlo_plot", "one_way_plot", "ranking_plot", "tornado_plot"})
 
 
 def __getattr__(name: str) -> object:
     if name == "write_excel":
-        from .excel import write_excel
+        from . import excel
 
-        return write_excel
+        return excel.write_excel
+    if name in _PLOTS:
+        from . import viz
+
+        return getattr(viz, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(__all__)

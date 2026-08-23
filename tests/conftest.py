@@ -1,7 +1,7 @@
 """Shared plumbing for the suite.
 
-``tests/unit/**`` mirrors ``src/carbitrage/**`` and covers one module's contract
-each.  ``tests/integration/**`` builds whole alternatives and runs the engine.
+``tests/unit/`` holds one file per scope, covering that scope's contract.
+``tests/integration/**`` builds whole alternatives and runs the engine.
 ``tests/docs/`` executes the code blocks in the README and ``docs/``.
 """
 

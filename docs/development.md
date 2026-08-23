@@ -10,43 +10,77 @@ make check            # lint, types, tests, and the end-to-end example
 
 `make check` is what CI runs, so a clean run locally means a clean run there.
 
+## Scopes
+
+The unit of structure is a **scope**: one concept, one directory, its
+`__init__.py` nothing but re-exports and `__all__`.
+
+```
+carbitrage/energy/
+    __init__.py       the scope's public surface
+    base.py           EnergySource — what every carrier has to answer
+    electricity.py    Electricity
+    fuels.py          Petrol, Diesel, LPG, Hydrogen
+    bivalent.py       BivalentSource
+```
+
+A scope stays a single module while it is small enough not to need a directory
+(`vehicle.py`, `residual.py`, `tax.py`, `context.py`, `errors.py`), and becomes
+one when it grows past roughly 200 lines or holds units that are independently
+substantial. Converting one is invisible to users: `carbitrage.energy` is the
+import path either way.
+
+Six spine names — `Timeline`, `Vehicle`, `Alternative`, `Case`, `compare`,
+`ComparisonResult` — sit directly on `carbitrage` as well, because they open
+every script and stutter when qualified.
+
+`carbitrage/__init__.py` resolves scopes lazily through a module `__getattr__`,
+so `import carbitrage` costs the spine and nothing more; reaching for
+`carbitrage.sensitivity` is what pulls in `scipy`. The `if TYPE_CHECKING:` block
+listing every scope is what keeps them resolvable for mypy and editors — keep it
+in sync with `_SCOPES`.
+
 ## The layering rule
 
-`carbitrage` is layered. **A module may import from its own package or one
-below it, never above.**
+Scopes are layered. **A module may import from its own scope or one below it,
+never above.**
 
 ```
-errors  →  core  →  domain  →  engine  →  study  →  reporting
+errors → rates, cashflow → the modelled world → comparison → params,
+sensitivity, scenario → reporting
 ```
 
-| Package | Holds | May import |
-| --- | --- | --- |
-| `errors` | the error and warning hierarchy | nothing |
-| `core` | `timeline`, `cashflow` | `errors` |
-| `domain` | `vehicle`, `energy`, `residual`, `tax`, `incentive`, `acquisition`, `context` | `errors`, `core` |
-| `engine` | `alternative`, `comparison`, `chain`, `result` | `errors`, `core`, `domain` |
-| `study` | `params`, `sensitivity`, `scenario` | everything below |
-| `reporting` | `viz`, `excel` | everything below |
+| Layer | Scopes | May import |
+| ---: | --- | --- |
+| 0 | `errors` | nothing |
+| 1 | `rates`, `cashflow` | `errors` |
+| 2 | `vehicle`, `energy`, `residual`, `tax`, `incentives`, `acquisition`, `context` | layers 0–1 |
+| 3 | `comparison` | layers 0–2 |
+| 4 | `params`, `sensitivity`, `scenario` | everything below |
+| 5 | `reporting` | everything below |
 
-`tests/unit/test_layering.py` enforces this on every run. It scans *module-level*
-imports only, which is deliberate: the six convenience delegators on
-`ComparisonResult` (`result.one_way(...)`, `result.tornado(...)`, …) reach up into
-`study.sensitivity` from inside the method body, so `engine` stays importable
-without `study`. Another upward reference has to be function-local and carry a
-comment saying why — the test does not get relaxed.
+The layer of each scope is **declared** in `tests/unit/test_layering.py`, not
+inferred from the directory tree, and enforced on every run. That separation is
+the point: the tree answers *which concept a name belongs to*, the table answers
+*what may depend on what*, and neither question should distort the other. A scope
+added without a layer fails the scan rather than escaping it.
+
+The scan reads *module-level* imports only, which is deliberate: the six
+convenience delegators on `ComparisonResult` (`result.one_way(...)`,
+`result.tornado(...)`, …) reach up into `sensitivity` from inside the method
+body, so `comparison` stays importable without `sensitivity`. Another upward
+reference has to be function-local and carry a comment saying why — the test does
+not get relaxed.
 
 Type-only imports under `if TYPE_CHECKING:` are exempt and may point anywhere.
 
 ## Adding to the public API
 
-`carbitrage/__init__.py` is the facade and the only supported import path.
-Subpackage `__init__.py` files are docstrings only, on purpose: eager
-re-exports would make `import carbitrage.study.params` drag in `scipy`, and
-under `mypy --strict` (`no_implicit_reexport`) each one would need its own
-`__all__` to keep in sync by hand.
-
-Adding a name means editing `__all__` in `carbitrage/__init__.py` **and** the
-frozen list in `tests/unit/test_public_api.py`. That friction is intentional.
+Adding a name means editing `__all__` in its own module, in the scope's
+`__init__.py`, **and** in the frozen `SCOPES` table in
+`tests/unit/test_public_api.py`. That friction is intentional. Leaving out the
+last two is not an option: the orphan scan in that file fails on any public name
+that no scope exports.
 
 ## Documentation
 
