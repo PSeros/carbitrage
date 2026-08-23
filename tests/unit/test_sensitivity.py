@@ -154,6 +154,38 @@ def test_a_range_must_be_ordered() -> None:
         Range(5.0, 1.0)
 
 
+def test_a_bare_name_sweeps_the_range_it_declared() -> None:
+    """The declaration is already on the parameter; restating it invites a mismatch."""
+    bar = case_with(BANDED).run().tornado([BANDED]).bars[0]
+    assert bar.endpoints() == ("19,000.00", "21,500.00")
+
+
+def test_a_declared_relative_range_stays_relative() -> None:
+    """Flattening it would erase the differences an alias exists to preserve."""
+    relative = Uncertain(20_000.0, "banded_price", Range(0.9, 1.1, relative=True))
+    bar = case_with(relative).run().tornado([relative]).bars[0]
+    assert bar.relative is True
+    assert bar.endpoints() == ("x0.9", "x1.1")
+    assert (bar.low_value, bar.high_value) == (18_000.0, 22_000.0)
+
+
+def test_a_declared_distribution_is_swept_across_its_band() -> None:
+    declared = Uncertain(20_000.0, "banded_price", Triangular(18_000.0, 20_000.0, 23_000.0))
+    bar = case_with(declared).run().tornado([declared]).bars[0]
+    assert (bar.low_value, bar.high_value) == (18_000.0, 23_000.0)
+
+
+def test_an_explicit_range_overrides_the_declaration() -> None:
+    """The caller asked a specific question; the declaration does not narrow it."""
+    bar = case_with(BANDED).run().tornado({BANDED: Range(10_000.0, 30_000.0)}).bars[0]
+    assert (bar.low_value, bar.high_value) == (10_000.0, 30_000.0)
+
+
+def test_an_undeclared_parameter_still_falls_back_to_the_default_range(marked: Case) -> None:
+    bar = marked.run().tornado([PRICE], default_range=Range(0.5, 1.5, relative=True)).bars[0]
+    assert (bar.low_value, bar.high_value) == (10_000.0, 30_000.0)
+
+
 # ----------------------------------------------------------- distributions
 
 
@@ -199,6 +231,41 @@ def test_distributions_validate_their_parameters(factory, match: str) -> None:
 
 
 # ---------------------------------------------------------- monte carlo
+
+
+def test_a_bare_name_samples_the_distribution_it_declared() -> None:
+    declared = Uncertain(20_000.0, "banded_price", Triangular(18_000.0, 20_000.0, 23_000.0))
+    simulation = case_with(declared).run().monte_carlo([declared], between=("a", "b"), n=64, seed=0)
+    assert simulation.params == ("banded_price",)
+    assert simulation.draws.min() >= 18_000.0
+    assert simulation.draws.max() <= 23_000.0
+
+
+def test_a_mapping_can_defer_one_parameter_and_state_another() -> None:
+    declared = Uncertain(20_000.0, "banded_price", Triangular(18_000.0, 20_000.0, 23_000.0))
+    simulation = (
+        case_with(declared)
+        .run()
+        .monte_carlo(
+            {declared: None, "annual_km": Uniform(8_000.0, 16_000.0)},
+            between=("a", "b"),
+            n=64,
+            seed=0,
+        )
+    )
+    assert simulation.params == ("banded_price", "annual_km")
+    assert simulation.draws[:, 1].min() >= 8_000.0
+
+
+def test_a_parameter_declaring_nothing_cannot_be_left_to_its_declaration(marked: Case) -> None:
+    with pytest.raises(CarbitrageError, match="sticker_price declares no spread"):
+        marked.run().monte_carlo([PRICE], between=("a", "b"), n=8)
+
+
+def test_a_declared_range_is_refused_rather_than_read_as_uniform() -> None:
+    """A range says where the value lies, not how likely each value in it is."""
+    with pytest.raises(CarbitrageError, match="how likely each value"):
+        case_with(BANDED).run().monte_carlo([BANDED], between=("a", "b"), n=8)
 
 
 # ------------------------------------------------- the result-level surface

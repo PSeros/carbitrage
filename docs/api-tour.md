@@ -40,6 +40,14 @@ reports where the crossing falls relative to the band, rather than refusing to
 look outside it. Bounded spreads are plausible to their edges; an unbounded one
 is read at its deciles.
 
+Three studies read the declaration. `switch_point` reports whether the crossing
+is plausible. `tornado` sweeps a bare name across the range it declared, falling
+back to `default_range` only where nothing was declared. `monte_carlo` samples
+the distribution a bare name declared — a declared `Range` is refused there
+rather than widened into a uniform, because a range says where a value lies and
+a simulation needs to know how likely each value in it is. An explicit range or
+distribution passed at the call site always wins.
+
 **Sensitivity** — every one of these re-runs the full monthly cash-flow engine:
 
 ```python
@@ -49,8 +57,10 @@ result.one_way("annual_km", [5_000, 12_000, 30_000])
 result.two_way("annual_km", rows, "lpg_price", cols)
 result.tornado({"annual_km": Range(5_000, 30_000),
                 "residual_rate": Range(0.7, 1.4, relative=True)})
+result.tornado([repair, annual_km])            # each across the range it declared
 result.monte_carlo({"lpg_price": Triangular(0.80, 0.99, 1.40)},
                    between=(a, b), correlation=[[1, .8], [.8, 1]], n=5_000)
+result.monte_carlo([repair], between=(a, b))   # sampling what the mark declared
 ```
 
 `monte_carlo` returns the distribution of the **difference**, not of each

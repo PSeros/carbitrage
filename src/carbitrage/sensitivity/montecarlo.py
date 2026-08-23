@@ -10,7 +10,7 @@ import numpy as np
 import numpy.typing as npt
 
 from ..errors import CarbitrageError
-from ..params import ParamName, name_of, resolve, set_params
+from ..params import ParamName, name_of, resolve, set_params, spread_of
 from .distributions import Distribution, _norm_cdf
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -69,7 +69,7 @@ class MonteCarlo:
 
 def monte_carlo(
     case: Case,
-    distributions: Mapping[ParamName, Distribution],
+    distributions: Sequence[ParamName] | Mapping[ParamName, Distribution | None],
     *,
     between: tuple[str, str],
     n: int = 2_000,
@@ -80,7 +80,11 @@ def monte_carlo(
 
     Args:
         case: The base case.
-        distributions: One distribution per parameter name.
+        distributions: Either parameter names, which then sample the
+            distribution each one declares for itself, or a mapping from name to
+            a distribution.  A mapping value of ``None`` also defers to the
+            declaration, which is how some parameters take theirs from the model
+            while others are given one here.
         between: The two alternatives whose difference is reported.
         n: Number of trials.
         correlation: Correlation matrix over the parameters, in the order they
@@ -91,15 +95,20 @@ def monte_carlo(
         seed: Seed for reproducibility.
 
     Raises:
-        CarbitrageError: on an empty specification, a non-positive ``n``, or a
-            correlation matrix that is not symmetric positive definite.
+        CarbitrageError: on an empty specification, a non-positive ``n``, a name
+            left to a declaration that cannot be sampled, or a correlation
+            matrix that is not symmetric positive definite.
     """
     if not distributions:
-        raise CarbitrageError("monte_carlo needs at least one distribution")
+        raise CarbitrageError("monte_carlo needs at least one parameter")
     if n <= 0:
         raise CarbitrageError(f"n must be positive, got {n!r}")
     a, b = between
-    names = tuple(distributions)
+    given: dict[ParamName, Distribution | None] = (
+        dict(distributions) if isinstance(distributions, Mapping) else dict.fromkeys(distributions)
+    )
+    names = tuple(given)
+    sampled = {name: _sampled(case, name, given[name]) for name in names}
     for name in names:
         resolve(case, name)
 
@@ -109,7 +118,7 @@ def monte_carlo(
         z = z @ _cholesky(np.asarray(correlation, dtype=np.float64), len(names)).T
     u = _norm_cdf(z)
 
-    draws = np.column_stack([distributions[name].ppf(u[:, j]) for j, name in enumerate(names)])
+    draws = np.column_stack([sampled[name].ppf(u[:, j]) for j, name in enumerate(names)])
 
     npv: dict[str, list[float]] = {name: [] for name in (a, b)}
     differences = np.empty(n, dtype=np.float64)
@@ -127,6 +136,30 @@ def monte_carlo(
         npv={name: np.asarray(values, dtype=np.float64) for name, values in npv.items()},
         params=tuple(name_of(name) for name in names),
         draws=draws,
+    )
+
+
+def _sampled(case: Case, name: ParamName, given: Distribution | None) -> Distribution:
+    """The distribution to sample for one parameter, given or declared.
+
+    A declared :class:`Range` is refused rather than widened into a uniform: a
+    range says where a value lies, a simulation needs to know how likely each
+    value in it is, and quietly supplying the second from the first would put a
+    modelling assumption nobody made into the answer.
+    """
+    if given is not None:
+        return given
+    declared = spread_of(case, name)
+    if isinstance(declared, Distribution):
+        return declared
+    shown = name_of(name)
+    if declared is None:
+        raise CarbitrageError(
+            f"{shown} declares no spread, so there is nothing to sample; give it a distribution"
+        )
+    raise CarbitrageError(
+        f"{shown} declares {declared!r}, which says where the value lies but not how likely each "
+        "value in it is; give it a distribution"
     )
 
 

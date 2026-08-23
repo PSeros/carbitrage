@@ -33,8 +33,9 @@ class Uncertain(float):
             name, and one label may mark several fields, which addresses them
             together.
         spread: A ``Distribution`` or ``Range``, which must be able to produce
-            the base value.  A study reads it to enrich an answer, never to
-            narrow its question.
+            the base value.  ``tornado`` and ``monte_carlo`` fall back to it for
+            a bare name, and ``switch_point`` reports the crossing against it.
+            A study reads it to enrich an answer, never to narrow its question.
 
     Raises:
         CarbitrageError: on an empty label, or on a base value the spread

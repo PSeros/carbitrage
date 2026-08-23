@@ -379,7 +379,7 @@ class ComparisonResult:
 
     def monte_carlo(
         self,
-        distributions: Mapping[ParamName, Distribution],
+        distributions: Sequence[ParamName] | Mapping[ParamName, Distribution | None],
         *,
         between: tuple[str, str],
         n: int = 2_000,

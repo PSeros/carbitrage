@@ -8,9 +8,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ..errors import CarbitrageError
-from ..params import ParamName, get_param, name_of, resolve, scale_param, set_param
+from ..params import ParamName, get_param, name_of, resolve, scale_param, set_param, spread_of
+from .distributions import Distribution
 from .metrics import Metric, best_margin
-from .spec import Range, _pretty
+from .spec import Range, _band, _pretty
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..comparison import Case
@@ -95,18 +96,27 @@ def tornado(
 
     Args:
         case: The base case.
-        params: Either parameter names, which then use ``default_range``, or a
-            mapping from name to an explicit :class:`Range`.
+        params: Either parameter names, which then take the range each one
+            declares for itself, or a mapping from name to an explicit
+            :class:`Range` that overrides any declaration.
         metric: What to measure.  Defaults to the winner's margin over the
             runner-up, which is the decision-relevant quantity: a driver that
             moves every alternative equally changes no decision.
-        default_range: Applied to any parameter given without one.  Defaults to
-            plus or minus a quarter of the base value.
+        default_range: Applied to any parameter given without one that declares
+            nothing either.  Defaults to plus or minus a quarter of the base
+            value.
+
+    A bare name is answered from the parameter's own declaration first — an
+    ``Uncertain`` carrying a spread already says what its plausible range is,
+    and making the caller restate it here invites the two saying different
+    things.  ``default_range`` catches what declares nothing.
     """
     read = best_margin() if metric is None else metric
     span_default = Range(0.75, 1.25, relative=True) if default_range is None else default_range
     ranges: dict[ParamName, Range] = (
-        dict(params) if isinstance(params, Mapping) else dict.fromkeys(params, span_default)
+        dict(params)
+        if isinstance(params, Mapping)
+        else {name: _declared_range(case, name) or span_default for name in params}
     )
     if not ranges:
         raise CarbitrageError("tornado needs at least one parameter")
@@ -138,6 +148,25 @@ def tornado(
         )
     bars.sort(key=lambda bar: bar.swing, reverse=True)
     return Tornado(base_metric=base_metric, bars=tuple(bars))
+
+
+def _declared_range(case: Case, name: ParamName) -> Range | None:
+    """The range a parameter declares for itself, or ``None`` when it declares none.
+
+    A relative range stays relative: an alias covering parameters that
+    legitimately differ has to be scaled, and flattening it to one pair of
+    numbers would erase the difference.  A distribution is read at its plausible
+    band, which is the same reading a switch point gives it.
+    """
+    declared = spread_of(case, name)
+    if declared is None:
+        return None
+    if isinstance(declared, Range):
+        return declared
+    if not isinstance(declared, Distribution):  # pragma: no cover - guarded at construction
+        raise CarbitrageError(f"a spread must be a Distribution or a Range, got {declared!r}")
+    low, high = _band(declared, _base_or_nan(case, name))
+    return Range(low, high)
 
 
 def _base_or_nan(case: Case, name: ParamName) -> float:
