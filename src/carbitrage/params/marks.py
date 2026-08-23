@@ -22,72 +22,28 @@ Spread: TypeAlias = "Distribution | Range"
 
 
 class Uncertain(float):
-    """A number that also carries the name a study will address it by.
+    """A float that carries the name a study will address it by::
 
-    Putting the mark where the value is *written* removes the need to know
-    where it ends up in the case tree::
-
-        keep = Alternative(
-            renault,
-            Purchase(upfront_extra=Uncertain(1_700, "repair_bill"), already_owned=True),
-            life_years=Uncertain(3, "renault_life"),
-            label="Renault",
-        )
-
-        result.one_way("repair_bill", [800, 1_700, 3_000])
-
-    A third argument declares what is known about the number beyond the base
-    value — a distribution when the shape is known, a ``Range`` when only the
-    span is::
-
-        Uncertain(1_700, "repair_bill", Triangular(800, 1_700, 4_000))
-        Uncertain(0.99, "lpg_price", Range(0.85, 1.35))
-
-    Declaring it once is what stops a tornado and a Monte Carlo over the same
-    parameter from resting on two different beliefs.  A study reads it to
-    *enrich* its answer and never to narrow its question: a switch point is
-    still searched for across the whole domain, and reported with where it
-    falls relative to what was declared.
-
-    The mark itself can be kept and passed around, which is the form that
-    survives a rename::
-
-        REPAIR = Uncertain(1_700, "repair_bill")
-        ...
-        result.one_way(REPAIR, [800, 1_700, 3_000])
-
-    It *is* a float: the base case evaluates on the value given, and
-    arithmetic, formatting and numpy all see an ordinary number.  A mark
-    therefore costs nothing until something asks for it by name.
-
-    The base value is required for that reason.  A case with a hole in it could
-    not be run, there would be nothing for a tornado's relative range to scale,
-    and a sweep would have no base case to be a perturbation *of*.
-
-    One label may mark several fields, and then it addresses all of them at
-    once, the way an alias does.  That is how you say "these two move
-    together".
-
-    Being a float has one sharp edge: two marks that share a base value are the
-    same dictionary key.  Where several parameters are named in one mapping — a
-    tornado's ranges, a Monte Carlo's distributions — key them by label rather
-    than by mark if their base values could coincide.
-
-    A mark survives an override, so a case that has been swept can be swept
-    again.  The exception is a field declared ``int`` or ``bool``, where
-    keeping the value in its declared type wins and the mark is dropped.
+        repair = Uncertain(1_700, "repair_bill", spread=Triangular(800, 1_700, 4_000))
+        result.one_way(repair, [800, 1_700, 3_000])   # or by its label
 
     Args:
         value: What the parameter is in the base case.
         label: The name studies address it by.  It shadows an alias of the same
-            name, since a mark is specific to this case and an alias is not.
-        spread: What is known about the value beyond the base case.  Optional,
-            and it must be able to produce the base value: an anchor its own
-            uncertainty rules out is a contradiction, not a base case.
+            name, and one label may mark several fields, which addresses them
+            together.
+        spread: A ``Distribution`` or ``Range``, which must be able to produce
+            the base value.  A study reads it to enrich an answer, never to
+            narrow its question.
 
     Raises:
         CarbitrageError: on an empty label, or on a base value the spread
             cannot produce.
+
+    Note:
+        Two marks sharing a base value are the same dictionary key, so key by
+        label where several are named in one mapping.  A field declared ``int``
+        or ``bool`` keeps its type and drops the mark.
     """
 
     __slots__ = ("label", "spread")
@@ -106,6 +62,13 @@ class Uncertain(float):
         if spread is not None:
             _reject_anchor_outside(float(marked), label, spread)
         return marked
+
+    def __init__(self, value: float, label: str, spread: Spread | None = None) -> None:
+        """Nothing to construct — ``__new__`` built the float.
+
+        Declared so that editors, which read ``__init__`` first, can show what
+        the constructor takes instead of offering a bare ``Uncertain()``.
+        """
 
     def __repr__(self) -> str:
         shown = f"Uncertain({float(self)!r}, {self.label!r}"
