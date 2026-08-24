@@ -7,12 +7,20 @@ import pytest
 
 from carbitrage import Alternative, Case, Timeline, Vehicle
 from carbitrage.acquisition import Purchase
+from carbitrage.cashflow import Component
 from carbitrage.context import Usage
 from carbitrage.energy import Petrol
 from carbitrage.errors import CarbitrageError
 from carbitrage.params import Uncertain, spreads
 from carbitrage.residual import GeometricDecline
-from carbitrage.sensitivity import LogNormal, Normal, Range, Triangular, Uniform
+from carbitrage.sensitivity import (
+    LogNormal,
+    MonteCarlo,
+    Normal,
+    Range,
+    Triangular,
+    Uniform,
+)
 from carbitrage.sensitivity.spec import _band
 
 # ------------------------------------------------------------------ params
@@ -432,6 +440,132 @@ def test_between_refuses_a_name_the_case_does_not_hold(three: Case) -> None:
 def test_between_refuses_the_same_alternative_twice(three: Case) -> None:
     with pytest.raises(CarbitrageError, match="names 'a' twice"):
         three.run().monte_carlo(between=("a", "a"), n=8, seed=0)
+
+
+# ---------------------------------------------- components under uncertainty
+
+
+@pytest.fixture
+def two_sources(three: Case) -> Case:
+    """The three-way case with mileage sampled too, so two components move apart."""
+    return Case(
+        alternatives=three.alternatives,
+        timeline=three.timeline,
+        usage=Usage(annual_km=Uncertain(12_000.0, "km", Uniform(8_000.0, 18_000.0))),
+    )
+
+
+def test_every_trial_s_components_sum_to_that_trial_s_npv(three: Case) -> None:
+    simulation = three.run().monte_carlo(n=64, seed=0)
+    for name in simulation.names:
+        assert np.allclose(simulation.breakdown[name].sum(axis=1), simulation.npv[name])
+
+
+def test_the_components_are_carried_in_the_order_the_enum_declares(three: Case) -> None:
+    simulation = three.run().monte_carlo(n=32, seed=0)
+    carried = set(simulation.components)
+    assert list(simulation.components) == [c for c in Component if c in carried]
+    assert Component.ACQUISITION in simulation.components
+
+
+def test_a_component_column_is_paired_with_the_total_row_by_row(three: Case) -> None:
+    simulation = three.run().monte_carlo(n=64, seed=0)
+    acquisition = simulation.component_npv("a", Component.ACQUISITION)
+    assert acquisition.size == simulation.n
+    assert np.corrcoef(acquisition, simulation.draws[:, 0])[0, 1] < -0.99
+
+
+def test_expected_components_sum_to_the_expected_npv(three: Case) -> None:
+    simulation = three.run().monte_carlo(n=64, seed=0)
+    expected = simulation.expected_npv()
+    for name, parts in simulation.expected_breakdown().items():
+        assert sum(parts.values()) == pytest.approx(expected[name], rel=1e-9, abs=1e-6)
+
+
+def test_the_frame_indexes_alternatives_then_statistics_low_to_high(three: Case, pandas) -> None:
+    simulation = three.run().monte_carlo(n=64, seed=0)
+    frame = simulation.breakdown_frame()
+    assert list(frame.columns.names) == ["alternative", "statistic"]
+    assert list(frame.columns) == [
+        (name, label) for name in simulation.names for label in ("p5", "mean", "p95")
+    ]
+
+
+def test_the_mean_sits_where_the_median_would(three: Case, pandas) -> None:
+    simulation = three.run().monte_carlo(n=64, seed=0)
+    frame = simulation.breakdown_frame(levels=(5, 25, 50, 75, 95))
+    labels = [label for _, label in frame.columns[: len(frame.columns) // 3]]
+    assert labels == ["p5", "p25", "mean", "p50", "p75", "p95"]
+
+
+def test_the_frame_rows_are_the_components_and_a_final_total(three: Case, pandas) -> None:
+    simulation = three.run().monte_carlo(n=32, seed=0)
+    frame = simulation.breakdown_frame()
+    assert frame.index.name == "component"
+    assert list(frame.index) == [c.name for c in simulation.components] + ["NPV"]
+
+
+def test_the_mean_column_sums_down_to_the_total(two_sources: Case, pandas) -> None:
+    """Expectation is linear, so this one column adds up exactly."""
+    simulation = two_sources.run().monte_carlo(n=128, seed=0)
+    column = simulation.breakdown_frame()[("a", "mean")]
+    assert column.drop("NPV").sum() == pytest.approx(column["NPV"], rel=1e-9, abs=1e-6)
+
+
+def test_the_percentile_columns_do_not_sum_down_to_the_total(two_sources: Case, pandas) -> None:
+    """Two components rarely hit their bad end together, so the total is narrower."""
+    simulation = two_sources.run().monte_carlo(n=256, seed=0)
+    column = simulation.breakdown_frame()[("a", "p5")]
+    assert column.drop("NPV").sum() < column["NPV"]
+
+
+def test_a_component_no_draw_reaches_reads_the_same_in_every_column(three: Case, pandas) -> None:
+    simulation = three.run().monte_carlo(n=64, seed=0)
+    row = simulation.breakdown_frame().loc[Component.ENERGY.name, "a"]
+    assert row["p5"] == pytest.approx(row["mean"]) == pytest.approx(row["p95"])
+
+
+def test_component_percentiles_cover_every_component(three: Case) -> None:
+    simulation = three.run().monte_carlo(n=64, seed=0)
+    percentiles = simulation.component_percentiles("a", (5, 95))
+    assert set(percentiles) == set(simulation.components)
+    acquisition = percentiles[Component.ACQUISITION]
+    assert acquisition[5.0] < acquisition[95.0]
+
+
+def test_rounding_the_frame_to_whole_units_gives_integers(three: Case, pandas) -> None:
+    simulation = three.run().monte_carlo(n=32, seed=0)
+    frame = simulation.breakdown_frame(decimals=0)
+    assert all(pandas.api.types.is_integer_dtype(dtype) for dtype in frame.dtypes)
+
+
+def test_an_empty_set_of_levels_leaves_the_mean_alone(three: Case, pandas) -> None:
+    simulation = three.run().monte_carlo(n=32, seed=0)
+    frame = simulation.breakdown_frame(levels=())
+    assert list(frame.columns) == [(name, "mean") for name in simulation.names]
+
+
+def test_a_level_outside_the_percentile_scale_is_refused(three: Case, pandas) -> None:
+    simulation = three.run().monte_carlo(n=32, seed=0)
+    with pytest.raises(CarbitrageError, match=r"percentile levels lie in \[0, 100\]"):
+        simulation.breakdown_frame(levels=(5, 120))
+
+
+def test_a_component_no_alternative_carries_is_refused(three: Case) -> None:
+    simulation = three.run().monte_carlo(n=32, seed=0)
+    with pytest.raises(CarbitrageError, match="appears in no alternative"):
+        simulation.component_npv("a", Component.LEASE)
+
+
+def test_a_simulation_built_by_hand_says_it_has_no_breakdown() -> None:
+    bare = MonteCarlo(
+        names=("a", "b"),
+        npv={"a": np.zeros(4), "b": np.ones(4)},
+        params=("price",),
+        draws=np.zeros((4, 1)),
+    )
+    with pytest.raises(CarbitrageError, match="carries no component breakdown"):
+        bare.expected_breakdown()
 
 
 # ------------------------------------------------- the result-level surface

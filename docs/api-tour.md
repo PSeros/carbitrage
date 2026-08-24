@@ -86,6 +86,15 @@ Which reading is licensed by what:
 | `expected_npv()` | the marginals alone — expectation is linear, so `E[a] - E[b] == E[a - b]` |
 | `npv_percentiles(name)` | the marginals — one alternative's own exposure, a budgeting question |
 | `probability(a, b)`, `win_share()`, `regret()` | the **pairing**, and nothing else will do |
+| `breakdown_frame()` | the marginals, component by component — where the spread comes from |
+
+`simulation.breakdown_frame()` is the probabilistic reading of
+`result.breakdown_frame()`: the same components down the rows, but each cell a
+statistic over the trials — `p5`, `mean`, `p95` by default, low to high with the
+mean where the median would sit. Only the mean row adds up to the `NPV` row;
+summing the percentiles describes a trial in which everything went wrong at
+once, which is not a trial the simulation drew. See
+[traceability](traceability.md#the-same-breakdown-under-uncertainty).
 
 `win_share()` is unit-free and so blind to magnitude: an option winning sixty
 per cent of trials by twenty euros and losing the rest by three thousand has

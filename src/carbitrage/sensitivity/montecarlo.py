@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import numpy.typing as npt
 
+from ..cashflow import Component
 from ..errors import CarbitrageError
 from ..params import ParamName, name_of, resolve, set_params, spread_of, spreads
 from .distributions import Distribution, _norm_cdf
@@ -47,6 +48,16 @@ class MonteCarlo:
     npv: dict[str, npt.NDArray[np.float64]]
     params: tuple[str, ...]
     draws: npt.NDArray[np.float64]
+
+    components: tuple[Component, ...] = ()
+    """The labelled parts the present values decompose into, in the order
+    :class:`~carbitrage.cashflow.Component` declares them.  Empty on a
+    simulation assembled by hand rather than by :func:`monte_carlo`."""
+
+    breakdown: dict[str, npt.NDArray[np.float64]] = field(default_factory=dict)
+    """Per alternative, trials down the rows and :attr:`components` across the
+    columns.  Every row sums to that trial's entry in :attr:`npv`, because the
+    present value is read off this decomposition rather than beside it."""
 
     @property
     def n(self) -> int:
@@ -87,6 +98,128 @@ class MonteCarlo:
         """
         values = np.percentile(self._column(name), levels)
         return {float(level): float(value) for level, value in zip(levels, values, strict=True)}
+
+    # ----------------------------------------------------------- components
+
+    def _parts(self, name: str) -> npt.NDArray[np.float64]:
+        """One alternative's component matrix, or a clear word on why there is none."""
+        if not self.components:
+            raise CarbitrageError(
+                "this simulation carries no component breakdown; build it with "
+                "monte_carlo(...) rather than constructing a MonteCarlo directly"
+            )
+        try:
+            return self.breakdown[name]
+        except KeyError:
+            raise CarbitrageError(
+                f"{name!r} is not in this simulation, which covers {list(self.names)}"
+            ) from None
+
+    def component_npv(self, name: str, component: Component) -> npt.NDArray[np.float64]:
+        """One component's present value for one alternative, trial by trial.
+
+        Paired with every other column of the simulation on the same rows, so a
+        component and the total it belongs to can be read against each other.
+        """
+        try:
+            j = self.components.index(component)
+        except ValueError:
+            raise CarbitrageError(
+                f"{component!r} appears in no alternative here, which carries "
+                f"{[c.name for c in self.components]}"
+            ) from None
+        return self._parts(name)[:, j]
+
+    def expected_breakdown(self) -> dict[str, dict[Component, float]]:
+        """Mean present value per component, per alternative.
+
+        The one component reading that adds up: expectation is linear, so these
+        sum down to :meth:`expected_npv` exactly.  No percentile does.
+        """
+        return {
+            name: dict(
+                zip(self.components, map(float, self._parts(name).mean(axis=0)), strict=True)
+            )
+            for name in self.names
+        }
+
+    def component_percentiles(
+        self, name: str, levels: Sequence[float] = (5, 95)
+    ) -> dict[Component, dict[float, float]]:
+        """Percentiles of each component's present value, for one alternative.
+
+        Each component read on its own, which is what makes these *not* add up:
+        the fifth percentile of a sum is not the sum of the fifth percentiles,
+        because the components do not all hit their bad end on the same trial.
+        Take the spread of the total from :meth:`npv_percentiles`, which is the
+        narrower and the honest one.
+        """
+        values = np.percentile(self._parts(name), levels, axis=0)
+        return {
+            component: {float(level): float(values[i, j]) for i, level in enumerate(levels)}
+            for j, component in enumerate(self.components)
+        }
+
+    def breakdown_frame(
+        self, *, levels: Sequence[float] = (5, 95), decimals: int | None = None
+    ) -> Any:
+        """Every alternative's components under uncertainty, as a pandas DataFrame.
+
+        The probabilistic reading of
+        :meth:`~carbitrage.comparison.ComparisonResult.breakdown_frame`: same
+        rows, but each cell is a statistic over the trials rather than one
+        base-case number.  Rows are components in
+        :class:`~carbitrage.cashflow.Component` order with a final ``NPV`` row;
+        columns are a two-level index of alternative and statistic, the
+        statistics running low to high with the mean where the median would sit.
+        A component no draw reaches shows the same figure in every column, which
+        is a fact about the run and not a rounding artefact.
+
+        Only the mean row adds up.  The percentile columns do not sum down to
+        the ``NPV`` row and are not meant to: totalling the fifth percentiles
+        would describe a trial in which every component went wrong at once,
+        which is not a trial the simulation drew.  The ``NPV`` row is taken from
+        the paired totals, so it is narrower than that sum, and it is the one to
+        quote.
+
+        Args:
+            levels: Percentiles to report alongside the mean.  Sorted and
+                de-duplicated; an empty sequence leaves the mean alone.
+            decimals: Round to this many places, ``0`` giving whole currency
+                units as integers.  ``None``, the default, keeps full precision.
+
+        Raises:
+            CarbitrageError: on a level outside ``[0, 100]``, or on a simulation
+                that carries no breakdown.
+
+        Requires the ``frames`` extra.
+        """
+        try:
+            import pandas as pd
+        except ImportError as exc:  # pragma: no cover - depends on the environment
+            raise ImportError(
+                "breakdown_frame() needs pandas; install carbitrage with the 'frames' extra"
+            ) from exc
+        statistics = _statistics(levels)
+        index = pd.Index([c.name for c in self.components] + ["NPV"], name="component")
+        columns: dict[tuple[str, str], npt.NDArray[np.float64]] = {}
+        for name in self.names:
+            parts = self._parts(name)
+            total = self._column(name)
+            for label, level in statistics:
+                if level is None:
+                    values = np.append(parts.mean(axis=0), total.mean())
+                else:
+                    values = np.append(
+                        np.percentile(parts, level, axis=0), np.percentile(total, level)
+                    )
+                columns[(name, label)] = values
+        frame = pd.DataFrame(columns, index=index)
+        frame.columns.names = ["alternative", "statistic"]
+        if decimals is None:
+            return frame
+        frame = frame.round(decimals)
+        return frame.astype(int) if decimals <= 0 else frame
 
     # ------------------------------------------------------------ pairwise
 
@@ -352,17 +485,51 @@ def monte_carlo(
     draws = np.column_stack([sampled[name].ppf(u[:, j]) for j, name in enumerate(parameters)])
 
     columns = np.empty((n, len(names)), dtype=np.float64)
+    seen: dict[str, dict[Component, npt.NDArray[np.float64]]] = {name: {} for name in names}
     for i in range(n):
         trial = set_params(case, dict(zip(parameters, draws[i], strict=True)))
         result = trial.run()
         for j, name in enumerate(names):
-            columns[i, j] = result[name].npv
+            decomposition = result[name].breakdown()
+            collected = seen[name]
+            for component, value in decomposition.items():
+                if component not in collected:
+                    collected[component] = np.zeros(n, dtype=np.float64)
+                collected[component][i] = value
+            columns[i, j] = sum(decomposition.values())
+
+    components = tuple(c for c in Component if any(c in seen[name] for name in names))
+    parts = {
+        name: np.column_stack(
+            [seen[name].get(c, np.zeros(n, dtype=np.float64)) for c in components]
+        )
+        for name in names
+    }
     return MonteCarlo(
         names=names,
         npv={name: columns[:, j].copy() for j, name in enumerate(names)},
         params=tuple(name_of(name) for name in parameters),
         draws=draws,
+        components=components,
+        breakdown=parts,
     )
+
+
+def _statistics(levels: Sequence[float]) -> tuple[tuple[str, float | None], ...]:
+    """The frame's statistic columns, ordered low to high.
+
+    The mean goes where the median would, between the levels below the halfway
+    mark and those above it, so a reader running along a row meets the figures
+    in the order their magnitudes usually come.
+    """
+    ordered = sorted(dict.fromkeys(float(level) for level in levels))
+    for level in ordered:
+        if not 0.0 <= level <= 100.0:
+            raise CarbitrageError(f"percentile levels lie in [0, 100], got {level!r}")
+    lower = [(f"p{level:g}", level) for level in ordered if level < 50.0]
+    upper = [(f"p{level:g}", level) for level in ordered if level >= 50.0]
+    middle: tuple[str, float | None] = ("mean", None)
+    return (*lower, middle, *upper)
 
 
 def _alternatives(case: Case, between: Sequence[str] | None) -> tuple[str, ...]:
