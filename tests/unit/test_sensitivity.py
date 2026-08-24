@@ -235,6 +235,8 @@ def test_triangular_respects_its_bounds_and_mode() -> None:
         (lambda: Uniform(2.0, 1.0), "low must be below high"),
         (lambda: Triangular(1.0, 0.5, 2.0), "low <= mode <= high"),
         (lambda: LogNormal.from_mean_cv(0.0, 0.2), "mean must be positive"),
+        (lambda: LogNormal(12_000.0, 1_000.0), "parameters are those of the underlying normal"),
+        (lambda: LogNormal(0.0, 1e300), "parameters are those of the underlying normal"),
     ],
 )
 def test_distributions_validate_their_parameters(factory, match: str) -> None:

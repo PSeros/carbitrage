@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -22,6 +23,13 @@ __all__ = [
     "Triangular",
     "Uniform",
 ]
+
+#: Largest logarithm a float can carry back through ``exp``, and the matching
+#: bound on ``sigma_log`` alone, which stops its square overflowing before the
+#: implied mean can be tested.
+_LOG_MAX = math.log(sys.float_info.max)
+_MAX_SIGMA_LOG = math.sqrt(2.0 * _LOG_MAX)
+
 
 # ----------------------------------------------------------- distributions
 
@@ -74,7 +82,15 @@ class Normal(Distribution):
 
 @dataclass(frozen=True)
 class LogNormal(Distribution):
-    """Log-normal.  Strictly positive, which suits prices and residual values."""
+    """Log-normal.  Strictly positive, which suits prices and residual values.
+
+    The two parameters describe the *underlying normal*, not the distribution
+    itself: a variable is log-normal when its logarithm is ``Normal(mu_log,
+    sigma_log)``.  So ``LogNormal(12_000, 1_000)`` is not a distribution around
+    twelve thousand -- it is one around ``exp(12_000)``.  Reach for
+    :meth:`from_mean_cv` whenever the numbers you have are in the units of the
+    parameter itself.
+    """
 
     mu_log: float
     sigma_log: float
@@ -82,6 +98,14 @@ class LogNormal(Distribution):
     def __post_init__(self) -> None:
         if self.sigma_log < 0:
             raise CarbitrageError(f"sigma_log must not be negative, got {self.sigma_log!r}")
+        if self.sigma_log > _MAX_SIGMA_LOG or self.mu_log + self.sigma_log**2 / 2.0 > _LOG_MAX:
+            raise CarbitrageError(
+                f"LogNormal({self.mu_log!r}, {self.sigma_log!r}) has a mean too large to "
+                f"represent, because its parameters are those of the underlying normal, "
+                f"not of the distribution itself; for a mean of {self.mu_log!r} write "
+                f"LogNormal.from_mean_cv({self.mu_log!r}, cv), with cv the standard "
+                f"deviation as a fraction of that mean"
+            )
 
     @classmethod
     def from_mean_cv(cls, mean: float, cv: float) -> LogNormal:
