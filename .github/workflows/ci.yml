@@ -55,20 +55,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv build
-      - name: the wheel must carry every subpackage and py.typed
+      - name: the wheel must carry every source file and py.typed
         run: |
           python - <<'PY'
-          import glob, zipfile
-          names = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
-          for want in (
-              "carbitrage/py.typed",
-              "carbitrage/errors.py",
-              "carbitrage/core/timeline.py",
-              "carbitrage/domain/energy.py",
-              "carbitrage/engine/comparison.py",
-              "carbitrage/study/params.py",
-              "carbitrage/reporting/excel.py",
-          ):
-              assert want in names, want
-          print("wheel contents ok")
+          import glob, pathlib, zipfile
+          names = set(zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist())
+          root = pathlib.Path("src")
+          want = {
+              p.relative_to(root).as_posix()
+              for p in root.rglob("*")
+              if p.is_file() and "__pycache__" not in p.parts
+          }
+          assert "carbitrage/py.typed" in want, "py.typed has gone missing from src/"
+          missing = sorted(want - names)
+          assert not missing, missing
+          print(f"wheel contents ok: {len(want)} files")
           PY
